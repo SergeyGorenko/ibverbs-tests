@@ -80,6 +80,10 @@ if DEVX
 ibv_test_SOURCES +=      tests/devx/smoke.cc
 endif
 
+if DV_SIG_OFFLOAD
+ibv_test_SOURCES +=      tests/dv-sig-offload/smoke.cc
+endif
+
 ibv_test_LDFLAGS =      $(LIB_MLX5)
 
 EXTRA_DIST = src/gtest-all.cc

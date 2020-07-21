@@ -206,5 +206,10 @@ AC_CHECK_DECLS([
 #include <infiniband/mlx5dv.h>
 ]])
 
+AC_CHECK_DECL([mlx5dv_wr_mkey_configure], [dv_sig_offload=1], [], [
+#include <infiniband/mlx5dv.h>
+])
+AM_CONDITIONAL([DV_SIG_OFFLOAD], [test x$dv_sig_offload = x1])
+
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
