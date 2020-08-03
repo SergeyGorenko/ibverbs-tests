@@ -95,43 +95,6 @@ struct ibvt_qp_sig : public ibvt_qp_rc {
 	virtual void wr_flags(unsigned int flags) {
 		ibv_qp_to_qp_ex(qp)->wr_flags = flags;
 	}
-/*
-	virtual void send_2wr(ibv_sge sge, ibv_sge sge2) {
-		struct ibv_send_wr wr = {};
-		struct ibv_send_wr wr2 = {};
-		struct ibv_send_wr *bad_wr = NULL;
-
-		wr.next = &wr2;
-		wr.sg_list = &sge;
-		wr.num_sge = 1;
-		wr._wr_opcode = IBV_WR_SEND;
-
-		wr2.sg_list = &sge2;
-		wr2.num_sge = 1;
-		wr2.wr_opcode = IBV_WR_SEND;
-		wr2.wr_send_flags = IBV_SEND_SIGNALED;
-
-		DO(ibv_post_send(qp, &wr, &bad_wr));
-	}
-
-	virtual void send_2wr_m(ibv_sge sge[], int sge_n, ibv_sge sge2) {
-		struct ibv_send_wr wr = {};
-		struct ibv_send_wr wr2 = {};
-		struct ibv_send_wr *bad_wr = NULL;
-
-		wr.next = &wr2;
-		wr.sg_list = sge;
-		wr.num_sge = sge_n;
-		wr._wr_opcode = IBV_WR_SEND;
-
-		wr2.sg_list = &sge2;
-		wr2.num_sge = 1;
-		wr2.wr_opcode = IBV_WR_SEND;
-		wr2.wr_send_flags = IBV_SEND_SIGNALED;
-
-		DO(ibv_post_send(qp, &wr, &bad_wr));
-	}
-*/
 };
 
 struct mkey_layout {
@@ -564,14 +527,14 @@ struct mlx5_mkey : public ibvt_abstract_mr {
 	}
 };
 
-struct sig_test_base : public testing::Test, public ibvt_env {
+struct mkey_test_base : public testing::Test, public ibvt_env {
 	ibvt_ctx ctx;
 	ibvt_pd pd;
 	ibvt_cq cq;
 	ibvt_qp_sig send_qp;
 	ibvt_qp_sig recv_qp;
 
-	sig_test_base() :
+	mkey_test_base() :
 		ctx(*this, NULL),
 		pd(*this, ctx),
 		cq(*this, ctx),
@@ -593,7 +556,7 @@ struct sig_test_base : public testing::Test, public ibvt_env {
 	}
 };
 
-TEST_F(sig_test_base, dv_sig_test) {
+TEST_F(mkey_test_base, mkey_test) {
 	CHK_SUT(dv_sig);
 	ibvt_mr src_mr(*this, pd, SZ);
 	ibvt_mr dst_mr(*this, pd, SZD(4));
