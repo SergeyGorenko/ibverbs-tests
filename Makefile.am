@@ -81,7 +81,8 @@ ibv_test_SOURCES +=      tests/devx/smoke.cc
 endif
 
 if MLX5DV_MKEY
-ibv_test_SOURCES +=      tests/mkey/smoke.cc
+ibv_test_SOURCES +=      tests/mkey/basic.cc
+ibv_test_SOURCES +=      tests/mkey/sig.cc
 endif
 
 ibv_test_LDFLAGS =      $(LIB_MLX5)

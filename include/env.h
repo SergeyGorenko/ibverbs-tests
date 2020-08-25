@@ -374,8 +374,9 @@ struct ibvt_env {
 	}
 
 	void check_ram(const char* var, long val) {
-		if (!ram_init)
+		if (!ram_init) {
 			ASSERT_NO_FATAL_FAILURE(init_ram());
+		}
 		char *hit = strstr(meminfo, var);
 		ASSERT_TRUE(hit) << var;
 		if ((val >> 10) > atoi(hit + strlen(var))) {
@@ -820,6 +821,18 @@ struct ibvt_abstract_mr : public ibvt_obj {
 		buff(NULL),
 		mem(NULL) {}
 
+	ibvt_abstract_mr(const struct ibvt_abstract_mr &) = delete;
+
+	ibvt_abstract_mr(struct ibvt_abstract_mr &&other) :
+		ibvt_obj(other),
+		size(other.size),
+		addr(other.addr),
+		buff(other.buff),
+		mem(other.mem),
+		mem_size(other.mem_size) {
+		other.mem = NULL;
+	}
+
 	virtual int mmap_flags() {
 		return MAP_PRIVATE|MAP_ANON;
 	}
@@ -893,6 +906,14 @@ struct ibvt_mr : public ibvt_abstract_mr {
 			  IBV_ACCESS_REMOTE_READ |
 			  IBV_ACCESS_REMOTE_WRITE) :
 		ibvt_abstract_mr(e, s, a), pd(p), access_flags(af), mr(NULL) {}
+
+	ibvt_mr(const struct ibvt_mr &) = delete;
+
+	ibvt_mr(struct ibvt_mr &&other) :
+		ibvt_abstract_mr(std::move(other)),
+		pd(other.pd), access_flags(other.access_flags), mr(other.mr) {
+		other.mr = NULL;
+	}
 
 	virtual void init() {
 		if (mr)
