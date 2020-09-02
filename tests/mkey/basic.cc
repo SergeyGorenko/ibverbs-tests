@@ -175,7 +175,7 @@ TYPED_TEST_P(mkey_test_basic, non_inline) {
 REGISTER_TYPED_TEST_CASE_P(mkey_test_basic, basic, non_signaled, non_inline);
 
 template<typename ...Setters>
-using mkey_dv_new_basic = mkey_dv_new<mkey_basic_attr<>, Setters...>;
+using mkey_dv_new_basic = mkey_dv_new<mkey_access_flags<>, mkey_valid, Setters...>;
 
 typedef testing::Types<
 	types<ibvt_qp_dv, rdma_op_read, mkey_dv_new_basic<mkey_layout_new_list_mrs<DATA_SIZE>>>,
@@ -215,11 +215,13 @@ typedef mkey_test_base<ibvt_qp_dv> mkey_test_dv_custom;
 
 TEST_F(mkey_test_dv_custom, basicAttr_badAccessFlags) {
 	// Remote read is not allowed from source mkey
-	mkey_dv_new<mkey_basic_attr<IBV_ACCESS_LOCAL_WRITE>,
+	mkey_dv_new<mkey_access_flags<IBV_ACCESS_LOCAL_WRITE>,
+		    mkey_valid,
 		    mkey_layout_new_list_mrs<DATA_SIZE>> src_mkey(*this,
 								  this->src_side.pd,
 								  1, MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT);
-	mkey_dv_new<mkey_basic_attr<>,
+	mkey_dv_new<mkey_access_flags<>,
+		    mkey_valid,
 		    mkey_layout_new_list_mrs<DATA_SIZE>> dst_mkey(*this,
 								  this->dst_side.pd,
 								  1, MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT);

@@ -60,10 +60,12 @@ struct _mkey_test_sig_block : public mkey_test_base<ibvt_qp_dv> {
 	static constexpr uint32_t dst_sig_size = DstSigBlock::MkeyDomainType::SigType::sig_size;
 	static constexpr uint32_t dst_data_size = NumBlocks * (dst_block_size + dst_sig_size);
 
-	struct mkey_dv_new<mkey_basic_attr<>,
+	struct mkey_dv_new<mkey_access_flags<>,
+			   mkey_valid,
 			   mkey_layout_new_list_mrs<src_data_size>,
 			   SrcSigBlock> src_mkey;
-	struct mkey_dv_new<mkey_basic_attr<>,
+	struct mkey_dv_new<mkey_access_flags<>,
+			   mkey_valid,
 			   mkey_layout_new_list_mrs<dst_data_size>,
 			   DstSigBlock> dst_mkey;
 	RdmaOp rdma_op;
@@ -186,7 +188,8 @@ typedef mkey_test_base<ibvt_qp_dv> mkey_test_sig_custom;
 
 TEST_F(mkey_test_sig_custom, noBlockSigAttr) {
 	// Mkey is created without block signature support
-	mkey_dv_new<mkey_basic_attr<>,
+	mkey_dv_new<mkey_access_flags<>,
+		    mkey_valid,
 		    mkey_layout_new_list_mrs<DATA_SIZE>,
 		    mkey_sig_block<mkey_sig_block_domain_none, mkey_sig_block_domain_none>>
 		src_mkey(*this, this->src_side.pd, 1, MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT);

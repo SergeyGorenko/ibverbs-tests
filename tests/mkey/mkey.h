@@ -168,23 +168,30 @@ struct mkey_setter {
 	virtual void wr_set(ibvt_qp &qp) = 0;
 };
 
+struct mkey_valid : public mkey_setter {
+	mkey_valid(ibvt_env &env, ibvt_pd &pd) {}
+
+	virtual void wr_set(struct ibvt_qp &qp) {
+		struct ibv_qp_ex *qpx = ibv_qp_to_qp_ex(qp.qp);
+		struct mlx5dv_qp_ex *mqp = mlx5dv_qp_ex_from_ibv_qp_ex(qpx);
+		mlx5dv_wr_set_mkey_valid(mqp);
+	}
+};
+
 template<uint32_t AccessFlags = IBV_ACCESS_LOCAL_WRITE |
 	 IBV_ACCESS_REMOTE_READ |
 	 IBV_ACCESS_REMOTE_WRITE>
-struct mkey_basic_attr : public mkey_setter {
+struct mkey_access_flags : public mkey_setter {
 	uint32_t access_flags;
 	/* @todo: add comp_mask attr */
 
-	mkey_basic_attr(ibvt_env &env, ibvt_pd &pd, uint32_t access_flags = AccessFlags) :
+	mkey_access_flags(ibvt_env &env, ibvt_pd &pd, uint32_t access_flags = AccessFlags) :
 		access_flags(access_flags) {}
 
 	virtual void wr_set(struct ibvt_qp &qp) {
 		struct ibv_qp_ex *qpx = ibv_qp_to_qp_ex(qp.qp);
 		struct mlx5dv_qp_ex *mqp = mlx5dv_qp_ex_from_ibv_qp_ex(qpx);
-		struct mlx5dv_mkey_attr mkey_attr = {
-			.access_flags = access_flags
-		};
-		mlx5dv_wr_mkey_set_basic_attr(mqp, &mkey_attr);
+		mlx5dv_wr_set_mkey_access_flags(mqp, access_flags);
 	}
 };
 
@@ -225,8 +232,17 @@ struct mkey_layout_new_list : public mkey_layout_new {
 	virtual void wr_set(ibvt_qp &qp) override {
 		struct ibv_qp_ex *qpx = ibv_qp_to_qp_ex(qp.qp);
 		struct mlx5dv_qp_ex *mqp = mlx5dv_qp_ex_from_ibv_qp_ex(qpx);
+		struct mlx5dv_mkey_layout_attr layout_attr = {
+			.mkey_layout = MLX5DV_MKEY_LAYOUT_LIST,
+			.entry_len = 0,
+			.repeat_count = 0,
+			.num_interleaved = 0,
+			.total_byte_count = 0
+		};
 
-		mlx5dv_wr_mkey_set_layout_list(mqp, sgl.size(), sgl.data());
+		mlx5dv_wr_set_mkey_layout(mqp, &layout_attr);
+		mlx5dv_wr_set_mkey_entries_list(mqp, 0, sgl.size(), sgl.data());
+		mlx5dv_wr_set_mkey_len(mqp, data_length());
 	}
 
 	/* @todo: will not work on top of other mkey where addr is zero. */
@@ -326,11 +342,24 @@ struct mkey_layout_new_interleaved : public mkey_layout_new {
 	virtual void wr_set(ibvt_qp &qp) override {
 		struct ibv_qp_ex *qpx = ibv_qp_to_qp_ex(qp.qp);
 		struct mlx5dv_qp_ex *mqp = mlx5dv_qp_ex_from_ibv_qp_ex(qpx);
+		struct mlx5dv_mkey_layout_attr layout_attr = {
+			.mkey_layout = MLX5DV_MKEY_LAYOUT_LIST_INTERLEAVED,
+			.entry_len = 0,
+			.repeat_count = repeat_count
+		};
+		uint64_t total_byte_count = 0;
 
-		mlx5dv_wr_mkey_set_layout_interleaved(mqp,
-						      repeat_count,
-						      interleaved.size(),
-						      interleaved.data());
+		for (const struct mlx5dv_mr_interleaved &i : interleaved) {
+			total_byte_count += i.bytes_count;
+		}
+		layout_attr.total_byte_count = total_byte_count;
+		layout_attr.num_interleaved = (uint32_t)interleaved.size();
+
+		mlx5dv_wr_set_mkey_layout(mqp, &layout_attr);
+		mlx5dv_wr_set_mkey_entries_interleaved(mqp, 0,
+						       interleaved.size(),
+						       interleaved.data());
+		mlx5dv_wr_set_mkey_len(mqp, data_length());
 	}
 
 	/* @todo: will not work on top of other mkey where addr is zero. */
@@ -489,7 +518,7 @@ struct mkey_sig_block : public mkey_setter {
 		mkey.set_domain(&attr.mkey);
 		wire.set_domain(&attr.wire);
 		attr.check_mask = CheckMask;
-		mlx5dv_wr_mkey_set_sig_block(mqp, &attr);
+		mlx5dv_wr_set_mkey_sig_block(mqp, &attr);
 	}
 };
 
