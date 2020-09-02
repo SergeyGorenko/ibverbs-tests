@@ -284,10 +284,9 @@ struct mkey_layout_new_list_mrs : public mkey_layout_new_list {
 			return;
 
 		initialized = true;
-		constexpr std::initializer_list<size_t> sizes = { Sizes... };
 		std::vector<struct ibv_sge> sgl;
 
-		for (auto &s: sizes) {
+		for (auto &s: { Sizes... }) {
 			mrs.emplace_back(env, pd, s);
 			auto &mr = mrs.back();
 			mr.init();
@@ -409,10 +408,10 @@ struct mkey_layout_new_interleaved_mrs : public mkey_layout_new_interleaved {
 			return;
 
 		initialized = true;
-		constexpr std::initializer_list<uint32_t> tmp_interleaved = { Interleaved... };
+		std::initializer_list<uint32_t> tmp_interleaved = { Interleaved... };
 		std::vector<struct mlx5dv_mr_interleaved> mlx5_interleaved;
 
-		static_assert(tmp_interleaved.size() % 2 == 0, "Number of interleaved is not multiple of 2");
+		static_assert(sizeof...(Interleaved) % 2 == 0, "Number of interleaved is not multiple of 2");
 		for (auto i = tmp_interleaved.begin(); i != tmp_interleaved.end(); ++i) {
 			auto byte_count = *i;
 			auto skip_count = *(++i);
