@@ -80,6 +80,13 @@ struct _mkey_test_sig_block : public mkey_test_base<ibvt_qp_dv> {
 		EXEC(dst_mkey.init());
 	}
 
+	bool is_supported() {
+		struct mlx5dv_context attr = {};
+		attr.comp_mask = MLX5DV_CONTEXT_MASK_SIGNATURE_OFFLOAD;
+		mlx5dv_query_device(this->ctx.ctx, &attr);
+		return SrcSigBlock::is_supported(attr) && DstSigBlock::is_supported(attr);
+	}
+
 	void fill_data() {
 		uint8_t src_buf[src_data_size];
 		uint8_t *buf = src_buf;
@@ -88,7 +95,7 @@ struct _mkey_test_sig_block : public mkey_test_base<ibvt_qp_dv> {
 		memset(src_buf, 0xA5, src_data_size);
 		for (uint32_t i = 0; i < NumBlocks; ++i) {
 			buf += src_block_size;
-			memcpy(buf, &value, src_sig_size);
+			SrcSigBlock::MkeyDomainType::SigType::sig_to_buf(value, buf);
 			buf += src_sig_size;
 		}
 		src_mkey.layout->set_data(src_buf, src_data_size);
@@ -99,15 +106,17 @@ struct _mkey_test_sig_block : public mkey_test_base<ibvt_qp_dv> {
 		uint8_t *buf = dst_buf;
 		uint8_t ref_block_buf[dst_block_size];
 		uint64_t value = DstValue;
+		uint8_t ref_sig_buf[dst_sig_size];
 
 		VERBS_TRACE("SrcBlockSize %u, SrcSigSize %u, DstBlockSize %u, DstSigSize %u\n",
 			    src_block_size, src_sig_size, dst_block_size, dst_sig_size);
 		memset(ref_block_buf, 0xA5, dst_block_size);
+		SrcSigBlock::MkeyDomainType::SigType::sig_to_buf(value, ref_sig_buf);
 		dst_mkey.layout->get_data(dst_buf, dst_data_size);
 		for (uint32_t i = 0; i < NumBlocks; ++i) {
 			ASSERT_EQ(0, memcmp(buf, ref_block_buf, dst_block_size));
 			buf += dst_block_size;
-			ASSERT_EQ(0, memcmp(buf, &value, dst_sig_size));
+			ASSERT_EQ(0, memcmp(buf, ref_sig_buf, dst_sig_size));
 			buf += dst_sig_size;
 		}
 	}
@@ -160,13 +169,18 @@ using mkey_test_sig_block = _mkey_test_sig_block<typename T::SrcSigBlock, T::Src
 
 TYPED_TEST_CASE_P(mkey_test_sig_block);
 
+#define SIG_CHK_SUT() \
+	CHK_SUT(dv_sig); \
+	if (!this->is_supported()) SKIP(1);
+
 TYPED_TEST_P(mkey_test_sig_block, basic) {
-	CHK_SUT(dv_sig);
+	SIG_CHK_SUT();
 
 	EXEC(fill_data());
 	EXEC(configure_mkeys());
-	this->src_mkey.layout->dump(0, 0, "SRC");
 	EXEC(execute_rdma());
+	// this->src_mkey.layout->dump(0, 0, "SRC");
+	// this->dst_mkey.layout->dump(0, 0, "DST");
 	EXEC(check_mkeys());
 	EXEC(check_data());
 }
@@ -176,26 +190,71 @@ REGISTER_TYPED_TEST_CASE_P(mkey_test_sig_block, basic);
 typedef testing::Types<
 	types<mkey_sig_block_none, 0,
 	      mkey_sig_block_none, 0>,
-	types<mkey_sig_block_none, 0,
+
+	// Wire domain
+	types<mkey_sig_block<mkey_sig_block_domain_none,
+			     mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>, 0,
+	      mkey_sig_block<mkey_sig_block_domain_none,
+			     mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>, 0>,
+	types<mkey_sig_block<mkey_sig_block_domain_none,
+			     mkey_sig_block_domain<mkey_sig_crc32c, mkey_sig_block_size_512>>, 0,
+	      mkey_sig_block<mkey_sig_block_domain_none,
+			     mkey_sig_block_domain<mkey_sig_crc32c, mkey_sig_block_size_512>>, 0>,
+	types<mkey_sig_block<mkey_sig_block_domain_none,
+			     mkey_sig_block_domain<mkey_sig_crc64xp10, mkey_sig_block_size_512>>, 0,
+	      mkey_sig_block<mkey_sig_block_domain_none,
+			     mkey_sig_block_domain<mkey_sig_crc64xp10, mkey_sig_block_size_512>>, 0>,
+
+	// Mkey domain
+	types<mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
+			     mkey_sig_block_domain_none>, 0x699ACA21,
 	      mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32c, mkey_sig_block_size_512>,
-			     mkey_sig_block_domain_none>, 0>
-	> mkey_test_list_signatures;
-INSTANTIATE_TYPED_TEST_CASE_P(signatures, mkey_test_sig_block, mkey_test_list_signatures);
+			     mkey_sig_block_domain_none>, 0x7BE5157D>,
+	// @todo: check crc64 signature
+	types<mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
+			     mkey_sig_block_domain_none>, 0x699ACA21,
+	      mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc64xp10, mkey_sig_block_size_512>,
+			     mkey_sig_block_domain_none>, 0xB23C348A1F86783F>
+	> mkey_test_list_sig_types;
+INSTANTIATE_TYPED_TEST_CASE_P(sig_types, mkey_test_sig_block, mkey_test_list_sig_types);
+
+typedef testing::Types<
+	types<mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
+			     mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>, 0x699ACA21,
+	      mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
+			     mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>, 0x699ACA21,
+	      1, rdma_op_read<ibvt_qp_dv>>,
+	types<mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
+			     mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>, 0x699ACA21,
+	      mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
+			     mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>, 0x699ACA21,
+	      1, rdma_op_write<ibvt_qp_dv>>,
+	types<mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
+			     mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>, 0x699ACA21,
+	      mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
+			     mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>, 0x699ACA21,
+	      1, rdma_op_send<ibvt_qp_dv>>
+
+	> mkey_test_list_ops;
+INSTANTIATE_TYPED_TEST_CASE_P(ops, mkey_test_sig_block, mkey_test_list_ops);
+
 
 typedef mkey_test_base<ibvt_qp_dv> mkey_test_sig_custom;
 
 TEST_F(mkey_test_sig_custom, noBlockSigAttr) {
+	// @todo: add caps check
+	//SIG_CHK_SUT();
+
 	// Mkey is created without block signature support
 	mkey_dv_new<mkey_access_flags<>,
 		    mkey_layout_new_list_mrs<DATA_SIZE>,
-		    mkey_sig_block<mkey_sig_block_domain_none, mkey_sig_block_domain_none>>
+		    mkey_sig_block_none>
 		src_mkey(*this, this->src_side.pd, 1, MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT);
 
 	EXECL(src_mkey.init());
 
-	struct ibv_qp_ex *src_qpx = ibv_qp_to_qp_ex(this->src_side.qp.qp);
-	this->src_side.qp.wr_flags(IBV_SEND_SIGNALED | IBV_SEND_INLINE);
-	EXECL(ibv_wr_start(src_qpx));
+	EXEC(src_side.qp.wr_flags(IBV_SEND_SIGNALED | IBV_SEND_INLINE));
+	EXEC(src_side.qp.wr_start());
 	EXECL(src_mkey.wr_configure(this->src_side.qp));
-	ASSERT_EQ(EOPNOTSUPP, ibv_wr_complete(src_qpx));
+	EXEC(src_side.qp.wr_complete(EOPNOTSUPP));
 }

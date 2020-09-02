@@ -125,6 +125,7 @@ using mkey_test_basic = _mkey_test_basic<typename T::Qp, typename T::RdmaOp, typ
 TYPED_TEST_CASE_P(mkey_test_basic);
 
 TYPED_TEST_P(mkey_test_basic, basic) {
+	/* @todo: do we need to check for signature here? */
 	CHK_SUT(dv_sig);
 
 	EXEC(fill_data());
@@ -155,6 +156,9 @@ TYPED_TEST_P(mkey_test_basic, non_signaled) {
 
 TYPED_TEST_P(mkey_test_basic, non_inline) {
 	CHK_SUT(dv_sig);
+	// @todo: remove skip when inline is implemented
+	SKIP(1);
+
 	auto &src_side = this->src_side;
 	auto &dst_side = this->dst_side;
 
@@ -193,23 +197,6 @@ typedef testing::Types<
 	types<ibvt_qp_dv, rdma_op_send, mkey_dv_new_basic<mkey_layout_new_list_mrs<DATA_SIZE>>>
 	> mkey_test_list_ops;
 INSTANTIATE_TYPED_TEST_CASE_P(operations, mkey_test_basic, mkey_test_list_ops);
-
-typedef testing::Types<
-	types<ibvt_qp_dv, rdma_op_read, mkey_dv_new_basic<mkey_layout_new_list_mrs<DATA_SIZE>,
-							  mkey_sig_block<mkey_sig_block_domain_none,
-									 mkey_sig_block_domain<mkey_sig_crc32c, mkey_sig_block_size_512>>>>,
-	types<ibvt_qp_dv, rdma_op_read, mkey_dv_new_basic<mkey_layout_new_list_mrs<DATA_SIZE>,
-							  mkey_sig_block<mkey_sig_block_domain_none,
-									 mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>>>,
-	types<ibvt_qp_dv, rdma_op_read, mkey_dv_new_basic<mkey_layout_new_list_mrs<DATA_SIZE>,
-							  mkey_sig_block<mkey_sig_block_domain_none,
-									 mkey_sig_block_domain<mkey_sig_crc64xp10, mkey_sig_block_size_512>>>>,
-	// @todo: should fail
-	types<ibvt_qp_dv, rdma_op_read, mkey_dv_new_basic<mkey_layout_new_list_mrs<DATA_SIZE>,
-							  mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32c, mkey_sig_block_size_512>,
-									 mkey_sig_block_domain_none>>>
-	> mkey_test_list_sig;
-INSTANTIATE_TYPED_TEST_CASE_P(signatures, mkey_test_basic, mkey_test_list_sig);
 
 typedef mkey_test_base<ibvt_qp_dv> mkey_test_dv_custom;
 

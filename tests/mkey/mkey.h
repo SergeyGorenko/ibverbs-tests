@@ -36,7 +36,7 @@ struct ibvt_qp_dv : public ibvt_qp_rc {
 	ibvt_qp_dv(ibvt_env &e, ibvt_pd &p, ibvt_cq &c) :
 		ibvt_qp_rc(e, p, c) {}
 
-	virtual void init_attr(struct ibv_qp_init_attr_ex &attr) {
+	virtual void init_attr(struct ibv_qp_init_attr_ex &attr) override {
 		ibvt_qp_rc::init_attr(attr);
 		attr.cap.max_send_wr = 128;
 		attr.cap.max_send_sge = 16;
@@ -55,7 +55,7 @@ struct ibvt_qp_dv : public ibvt_qp_rc {
 		dv_attr.send_ops_flags = MLX5DV_QP_EX_WITH_MKEY_CONFIGURE;
 	}
 
-	virtual void init() {
+	virtual void init() override {
 		struct ibv_qp_init_attr_ex attr = {};
 		struct mlx5dv_qp_init_attr dv_attr = {};
 
@@ -67,6 +67,16 @@ struct ibvt_qp_dv : public ibvt_qp_rc {
 		SET(qp, mlx5dv_create_qp(pd.ctx.ctx, &attr, &dv_attr));
 	}
 
+	virtual void wr_start() {
+		struct ibv_qp_ex *qpx = ibv_qp_to_qp_ex(qp);
+		EXECL(ibv_wr_start(qpx));
+	}
+
+	virtual void wr_complete(int status = 0) {
+		struct ibv_qp_ex *qpx = ibv_qp_to_qp_ex(qp);
+		ASSERT_EQ(status, ibv_wr_complete(qpx));
+	}
+
 	virtual void wr_id(uint64_t id) {
 		ibv_qp_to_qp_ex(qp)->wr_id = id;
 	}
@@ -74,6 +84,25 @@ struct ibvt_qp_dv : public ibvt_qp_rc {
 	virtual void wr_flags(unsigned int flags) {
 		ibv_qp_to_qp_ex(qp)->wr_flags = flags;
 	}
+
+	virtual void wr_rdma_read(struct ibv_sge local_sge, struct ibv_sge remote_sge) {
+		struct ibv_qp_ex *qpx = ibv_qp_to_qp_ex(qp);
+		ibv_wr_rdma_read(qpx, remote_sge.lkey, remote_sge.addr);
+		ibv_wr_set_sge_list(qpx, 1, &local_sge);
+	}
+
+	virtual void wr_rdma_write(struct ibv_sge local_sge, struct ibv_sge remote_sge) {
+		struct ibv_qp_ex *qpx = ibv_qp_to_qp_ex(qp);
+		ibv_wr_rdma_write(qpx, remote_sge.lkey, remote_sge.addr);
+		ibv_wr_set_sge_list(qpx, 1, &local_sge);
+	}
+
+	virtual void wr_send(struct ibv_sge local_sge) {
+		struct ibv_qp_ex *qpx = ibv_qp_to_qp_ex(qp);
+		ibv_wr_send(qpx);
+		ibv_wr_set_sge_list(qpx, 1, &local_sge);
+	}
+
 };
 
 struct mkey : public ibvt_abstract_mr {
@@ -166,6 +195,7 @@ struct mkey_setter {
 	virtual ~mkey_setter() = default;
 	virtual void init() {};
 	virtual void wr_set(ibvt_qp &qp) = 0;
+	virtual size_t adjust_length(size_t length) { return length; };
 };
 
 template<uint32_t AccessFlags = IBV_ACCESS_LOCAL_WRITE |
@@ -412,47 +442,85 @@ struct mkey_sig_none : public mkey_sig {
 	virtual void set_sig(struct mlx5dv_sig_block_domain &domain) override {
 		domain.sig_type = MLX5DV_SIG_TYPE_NONE;
 	}
+
+	static void sig_to_buf(uint64_t value, uint8_t *buf) {}
+
+	static bool is_supported(struct mlx5dv_context &attr) {
+		return true;
+	}
 };
 
+template<enum mlx5dv_sig_crc_type CrcType, enum mlx5dv_sig_crc_type_caps CrcTypeCaps>
+struct mkey_sig_crc_type {
+	static const enum mlx5dv_sig_crc_type mlx5_crc_type = CrcType;
+	static const enum mlx5dv_sig_crc_type_caps mlx5_crc_type_caps = CrcTypeCaps;
+};
 
-template<enum mlx5dv_sig_crc_type CrcType, uint32_t Seed>
+typedef mkey_sig_crc_type<MLX5DV_SIG_CRC_TYPE_CRC32, MLX5DV_SIG_CRC_TYPE_CAP_CRC32> mkey_sig_crc_type_crc32;
+typedef mkey_sig_crc_type<MLX5DV_SIG_CRC_TYPE_CRC32C, MLX5DV_SIG_CRC_TYPE_CAP_CRC32C> mkey_sig_crc_type_crc32c;
+typedef mkey_sig_crc_type<MLX5DV_SIG_CRC_TYPE_CRC64, MLX5DV_SIG_CRC_TYPE_CAP_CRC64> mkey_sig_crc_type_crc64;
+
+template<typename CrcType, uint32_t Seed>
 struct mkey_sig_crc32 : public mkey_sig {
 	static constexpr uint32_t sig_size = 4;
 	struct mlx5dv_sig_crc crc;
 
 	virtual void set_sig(struct mlx5dv_sig_block_domain &domain) override {
 		domain.sig_type = MLX5DV_SIG_TYPE_CRC;
-		crc.type = CrcType;
+		crc.type = CrcType::mlx5_crc_type;
 		crc.seed.crc32 = Seed;
 		domain.sig.crc = &crc;
 	}
+
+	static void sig_to_buf(uint64_t value, uint8_t *buf) {
+		uint32_t value32 = htonl(value & 0xFFFFFFFF);
+		memcpy(buf, &value32, sig_size);
+	}
+
+	static bool is_supported(struct mlx5dv_context &attr) {
+		return attr.sig_caps.crc_type & CrcType::mlx5_crc_type_caps;
+	}
 };
 
-template<enum mlx5dv_sig_crc_type CrcType, uint64_t Seed>
+template<typename CrcType, uint64_t Seed>
 struct mkey_sig_crc64 : public mkey_sig {
 	static constexpr uint32_t sig_size = 8;
 	struct mlx5dv_sig_crc crc;
 
 	virtual void set_sig(struct mlx5dv_sig_block_domain &domain) override {
 		domain.sig_type = MLX5DV_SIG_TYPE_CRC;
-		crc.type = CrcType;
+		crc.type = CrcType::mlx5_crc_type;
 		crc.seed.crc64 = Seed;
 		domain.sig.crc = &crc;
 	}
+
+	static void sig_to_buf(uint64_t value, uint8_t *buf) {
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+		value = ((uint64_t)htonl((value) & 0xFFFFFFFFLL) << 32) | htonl((value) >> 32);
+#endif
+		memcpy(buf, &value, sig_size);
+	}
+
+	static bool is_supported(struct mlx5dv_context &attr) {
+		return attr.sig_caps.crc_type & CrcType::mlx5_crc_type_caps;
+	}
 };
 
-template<enum mlx5dv_sig_block_size Mlx5BlockSize, uint32_t BlockSize>
+template<enum mlx5dv_sig_block_size Mlx5BlockSize,
+	 enum mlx5dv_sig_block_size_caps Mlx5BlockSizeCaps,
+	 uint32_t BlockSize>
 struct mkey_sig_block_size {
 	static const enum mlx5dv_sig_block_size mlx5_block_size = Mlx5BlockSize;
+	static const enum mlx5dv_sig_block_size_caps mlx5_block_size_caps = Mlx5BlockSizeCaps;
 	static const uint32_t block_size = BlockSize;
 };
 
-typedef mkey_sig_block_size<MLX5DV_SIG_BLOCK_SIZE_512, 512> mkey_sig_block_size_512;
-typedef mkey_sig_block_size<MLX5DV_SIG_BLOCK_SIZE_520, 520> mkey_sig_block_size_520;
-typedef mkey_sig_block_size<MLX5DV_SIG_BLOCK_SIZE_4048, 4048> mkey_sig_block_size_4048;
-typedef mkey_sig_block_size<MLX5DV_SIG_BLOCK_SIZE_4096, 4096> mkey_sig_block_size_4096;
-typedef mkey_sig_block_size<MLX5DV_SIG_BLOCK_SIZE_4160, 4160> mkey_sig_block_size_4160;
-typedef mkey_sig_block_size<MLX5DV_SIG_BLOCK_SIZE_1M, 1024*1024> mkey_sig_block_size_1M;
+typedef mkey_sig_block_size<MLX5DV_SIG_BLOCK_SIZE_512, MLX5DV_SIG_BLOCK_SIZE_CAP_512, 512> mkey_sig_block_size_512;
+typedef mkey_sig_block_size<MLX5DV_SIG_BLOCK_SIZE_520, MLX5DV_SIG_BLOCK_SIZE_CAP_520, 520> mkey_sig_block_size_520;
+typedef mkey_sig_block_size<MLX5DV_SIG_BLOCK_SIZE_4048, MLX5DV_SIG_BLOCK_SIZE_CAP_4048, 4048> mkey_sig_block_size_4048;
+typedef mkey_sig_block_size<MLX5DV_SIG_BLOCK_SIZE_4096, MLX5DV_SIG_BLOCK_SIZE_CAP_4096, 4096> mkey_sig_block_size_4096;
+typedef mkey_sig_block_size<MLX5DV_SIG_BLOCK_SIZE_4160, MLX5DV_SIG_BLOCK_SIZE_CAP_4160, 4160> mkey_sig_block_size_4160;
+typedef mkey_sig_block_size<MLX5DV_SIG_BLOCK_SIZE_1M, MLX5DV_SIG_BLOCK_SIZE_CAP_1M, 1024*1024> mkey_sig_block_size_1M;
 
 template<typename Sig, typename BlockSize>
 struct mkey_sig_block_domain {
@@ -460,12 +528,17 @@ struct mkey_sig_block_domain {
 	typedef Sig SigType;
 
 	struct mlx5dv_sig_block_domain domain;
+	Sig sig;
 
 	void set_domain(const mlx5dv_sig_block_domain **d) {
-		Sig sig;
 		sig.set_sig(domain);
 		domain.block_size = BlockSize::mlx5_block_size;
 		*d = &domain;
+	}
+
+	static bool is_supported(struct mlx5dv_context &attr) {
+		return attr.sig_caps.block_size & BlockSizeType::mlx5_block_size_caps &&
+			SigType::is_supported(attr);
 	}
 };
 
@@ -488,12 +561,26 @@ struct mkey_sig_block : public mkey_setter {
 		attr.check_mask = CheckMask;
 		mlx5dv_wr_set_mkey_sig_block(mqp, &attr);
 	}
+
+	virtual size_t adjust_length(size_t length) {
+		size_t mkey_num_blocks = length / (MkeyDomainType::BlockSizeType::block_size + MkeyDomainType::SigType::sig_size);
+		size_t data_length = length - mkey_num_blocks * MkeyDomainType::SigType::sig_size;
+		size_t wire_num_blocks = data_length / WireDomainType::BlockSizeType::block_size;
+		size_t wire_length = data_length + wire_num_blocks * WireDomainType::SigType::sig_size;
+		return wire_length;
+	}
+
+	static bool is_supported(struct mlx5dv_context &attr) {
+		return attr.comp_mask & MLX5DV_CONTEXT_MASK_SIGNATURE_OFFLOAD &&
+			MkeyDomainType::is_supported(attr) &&
+			WireDomainType::is_supported(attr);
+	}
 };
 
 // Some helper types
-typedef mkey_sig_crc32<MLX5DV_SIG_CRC_TYPE_CRC32, 0xFFFFFFFF> mkey_sig_crc32ieee;
-typedef mkey_sig_crc32<MLX5DV_SIG_CRC_TYPE_CRC32C, 0xFFFFFFFF> mkey_sig_crc32c;
-typedef mkey_sig_crc64<MLX5DV_SIG_CRC_TYPE_CRC64, 0xFFFFFFFFFFFFFFFF> mkey_sig_crc64xp10;
+typedef mkey_sig_crc32<mkey_sig_crc_type_crc32, 0xFFFFFFFF> mkey_sig_crc32ieee;
+typedef mkey_sig_crc32<mkey_sig_crc_type_crc32c, 0xFFFFFFFF> mkey_sig_crc32c;
+typedef mkey_sig_crc64<mkey_sig_crc_type_crc64, 0xFFFFFFFFFFFFFFFF> mkey_sig_crc64xp10;
 typedef mkey_sig_block_domain<mkey_sig_none, mkey_sig_block_size_512> mkey_sig_block_domain_none;
 typedef mkey_sig_block<mkey_sig_block_domain_none, mkey_sig_block_domain_none> mkey_sig_block_none;
 
@@ -598,6 +685,9 @@ struct mkey_dv_new : public mkey_dv {
 
 	virtual struct ibv_sge sge() override {
 		size_t length = layout ? layout->data_length() : 0;
+		for (auto s : setters) {
+			length = s->adjust_length(length);
+		}
 		return mkey_dv::sge(0, length);
 	}
 
@@ -629,6 +719,11 @@ struct mkey_test_side : public ibvt_obj {
 
 template<typename QP>
 struct rdma_op {
+	virtual void wr_submit(mkey_test_side<QP> &src_side,
+			       ibv_sge src_sge,
+			       mkey_test_side<QP> &dst_side,
+			       ibv_sge dst_sge) = 0;
+
 	virtual void submit(mkey_test_side<QP> &src_side,
 			    ibv_sge src_sge,
 			    mkey_test_side<QP> &dst_side,
@@ -648,12 +743,21 @@ struct rdma_op {
 
 template<typename QP>
 struct rdma_op_write : public rdma_op<QP> {
+	virtual void wr_submit(mkey_test_side<QP> &src_side,
+			       ibv_sge src_sge,
+			       mkey_test_side<QP> &dst_side,
+			       ibv_sge dst_sge) override {
+		src_side.qp.wr_flags(IBV_SEND_SIGNALED);
+		src_side.qp.wr_rdma_write(src_sge, dst_sge);
+	}
+
 	virtual void submit(mkey_test_side<QP> &src_side,
 			    ibv_sge src_sge,
 			    mkey_test_side<QP> &dst_side,
 			    ibv_sge dst_sge) override {
-		src_side.qp.wr_flags(IBV_SEND_SIGNALED);
-		src_side.qp.rdma(src_sge, dst_sge, IBV_WR_RDMA_WRITE);
+		src_side.qp.wr_start();
+		wr_submit(src_side, src_sge, dst_side, dst_sge);
+		src_side.qp.wr_complete();
 	}
 
 	virtual void complete(mkey_test_side<QP> &src_side,
@@ -666,12 +770,21 @@ struct rdma_op_write : public rdma_op<QP> {
 
 template<typename QP>
 struct rdma_op_read : public rdma_op<QP> {
+	virtual void wr_submit(mkey_test_side<QP> &src_side,
+			       ibv_sge src_sge,
+			       mkey_test_side<QP> &dst_side,
+			       ibv_sge dst_sge) override {
+		dst_side.qp.wr_flags(IBV_SEND_SIGNALED);
+		dst_side.qp.wr_rdma_read(dst_sge, src_sge);
+	}
+
 	virtual void submit(mkey_test_side<QP> &src_side,
 			    ibv_sge src_sge,
 			    mkey_test_side<QP> &dst_side,
 			    ibv_sge dst_sge) override {
-		dst_side.qp.wr_flags(IBV_SEND_SIGNALED);
-		dst_side.qp.rdma(dst_sge, src_sge, IBV_WR_RDMA_READ);
+		dst_side.qp.wr_start();
+		wr_submit(src_side, src_sge, dst_side, dst_sge);
+		dst_side.qp.wr_complete();
 	}
 
 	virtual void complete(mkey_test_side<QP> &src_side,
@@ -684,12 +797,23 @@ struct rdma_op_read : public rdma_op<QP> {
 
 template<typename QP>
 struct rdma_op_send : public rdma_op<QP> {
+	virtual void wr_submit(mkey_test_side<QP> &src_side,
+			       ibv_sge src_sge,
+			       mkey_test_side<QP> &dst_side,
+			       ibv_sge dst_sge) override {
+		// @todo: chaining for recv part is not implemented
+		dst_side.qp.recv(dst_sge);
+		src_side.qp.wr_flags(IBV_SEND_SIGNALED);
+		src_side.qp.wr_send(src_sge);
+	}
 	virtual void submit(mkey_test_side<QP> &src_side,
 			    ibv_sge src_sge,
 			    mkey_test_side<QP> &dst_side,
 			    ibv_sge dst_sge) override {
 		dst_side.qp.recv(dst_sge);
-		src_side.qp.post_send(src_sge, IBV_WR_SEND);
+		src_side.qp.wr_start();
+		wr_submit(src_side, src_sge, dst_side, dst_sge);
+		src_side.qp.wr_complete();
 	}
 
 	virtual void complete(mkey_test_side<QP> &src_side,
@@ -704,6 +828,18 @@ struct rdma_op_send : public rdma_op<QP> {
 
 template<typename QP>
 struct rdma_op_all : public rdma_op<QP> {
+	virtual void wr_submit(mkey_test_side<QP> &src_side,
+			       ibv_sge src_sge,
+			       mkey_test_side<QP> &dst_side,
+			       ibv_sge dst_sge) override {
+		struct rdma_op_read<QP> read;
+		struct rdma_op_write<QP> write;
+		struct rdma_op_send<QP> send;
+		read.wr_submit(src_side, src_sge, dst_side, dst_sge);
+		write.wr_submit(src_side, src_sge, dst_side, dst_sge);
+		send.wr_submit(src_side, src_sge, dst_side, dst_sge);
+	}
+
 	virtual void submit(mkey_test_side<QP> &src_side,
 			    ibv_sge src_sge,
 			    mkey_test_side<QP> &dst_side,
@@ -711,9 +847,9 @@ struct rdma_op_all : public rdma_op<QP> {
 		struct rdma_op_read<QP> read;
 		struct rdma_op_write<QP> write;
 		struct rdma_op_send<QP> send;
-		read.execute(src_side, src_sge, dst_side, dst_sge);
-		write.execute(src_side, src_sge, dst_side, dst_sge);
-		send.execute(src_side, src_sge, dst_side, dst_sge);
+		read.submit(src_side, src_sge, dst_side, dst_sge);
+		write.submit(src_side, src_sge, dst_side, dst_sge);
+		send.submit(src_side, src_sge, dst_side, dst_sge);
 	}
 
 	virtual void complete(mkey_test_side<QP> &src_side,
