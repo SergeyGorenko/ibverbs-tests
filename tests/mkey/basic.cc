@@ -50,16 +50,16 @@
 
 #define DATA_SIZE 4096
 
-template<typename Qp, typename RdmaOp, typename Mkey>
+template<typename Qp, typename RdmaOp, typename Mkey, uint16_t MaxEntries = 1>
 struct _mkey_test_basic : public mkey_test_base<Qp> {
 	Mkey src_mkey;
 	Mkey dst_mkey;
 	RdmaOp rdma_op;
 
 	_mkey_test_basic() :
-		src_mkey(*this, this->src_side.pd, 1, MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT |
+		src_mkey(*this, this->src_side.pd, MaxEntries, MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT |
 			 MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE),
-		dst_mkey(*this, this->dst_side.pd, 1, MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT |
+		dst_mkey(*this, this->dst_side.pd, MaxEntries, MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT |
 			 MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE) {}
 
 	virtual void SetUp() override {
@@ -110,17 +110,18 @@ struct _mkey_test_basic : public mkey_test_base<Qp> {
 	}
 };
 
-template<typename T_Qp, template<typename> typename T_RdmaOp, typename T_Mkey>
+template<typename T_Qp, template<typename> typename T_RdmaOp, typename T_Mkey, uint16_t T_MaxEntries = 1>
 struct types {
 	typedef T_Qp Qp;
 	typedef T_RdmaOp<T_Qp> RdmaOp;
 	typedef T_Mkey Mkey;
+	static constexpr uint64_t MaxEntries = T_MaxEntries;
 };
 
 // Basic test suite that should pass for all or almost all mkeys
 
 template<typename T>
-using mkey_test_basic = _mkey_test_basic<typename T::Qp, typename T::RdmaOp, typename T::Mkey>;
+using mkey_test_basic = _mkey_test_basic<typename T::Qp, typename T::RdmaOp, typename T::Mkey, T::MaxEntries>;
 
 TYPED_TEST_CASE_P(mkey_test_basic);
 
