@@ -80,8 +80,13 @@ struct _mkey_test_basic : public mkey_test_base<Qp> {
 		memset(src_buf, 0xA5, DATA_SIZE/2);
 		memset(src_buf+DATA_SIZE/2, 0x5A, DATA_SIZE/2);
 		uint8_t dst_buf[DATA_SIZE];
-		dst_mkey.layout->get_data(dst_buf, DATA_SIZE);
-		ASSERT_EQ(0, memcmp(src_buf, dst_buf, DATA_SIZE));
+		size_t data_len;
+
+		data_len = src_mkey.layout->data_length();
+		ASSERT_LE(data_len, (size_t)DATA_SIZE);
+
+		dst_mkey.layout->get_data(dst_buf, data_len);
+		ASSERT_EQ(0, memcmp(src_buf, dst_buf, data_len));
 	}
 
 	void configure_mkeys() {
@@ -185,8 +190,10 @@ using mkey_dv_new_basic = mkey_dv_new<mkey_access_flags<>, Setters...>;
 typedef testing::Types<
 	types<ibvt_qp_dv, rdma_op_read, mkey_dv_new_basic<mkey_layout_new_list_mrs<DATA_SIZE>>>,
 	types<ibvt_qp_dv, rdma_op_read, mkey_dv_new_basic<mkey_layout_new_list_mrs<DATA_SIZE/4, DATA_SIZE/4, DATA_SIZE/4, DATA_SIZE/4>>>,
+	types<ibvt_qp_dv, rdma_op_read, mkey_dv_new_basic<mkey_layout_new_list_mrs<DATA_SIZE/8, DATA_SIZE/8, DATA_SIZE/8, DATA_SIZE/8, DATA_SIZE/8, DATA_SIZE/8, DATA_SIZE/8, DATA_SIZE/8>>, 8>,
 	types<ibvt_qp_dv, rdma_op_read, mkey_dv_new_basic<mkey_layout_new_interleaved_mrs<1, DATA_SIZE, 0>>>,
-	types<ibvt_qp_dv, rdma_op_read, mkey_dv_new_basic<mkey_layout_new_interleaved_mrs<2, DATA_SIZE, 8, 4, 0>>>,
+	types<ibvt_qp_dv, rdma_op_read, mkey_dv_new_basic<mkey_layout_new_interleaved_mrs<2, DATA_SIZE/4, 8, 4, 0>>>,
+	types<ibvt_qp_dv, rdma_op_read, mkey_dv_new_basic<mkey_layout_new_interleaved_mrs<4, DATA_SIZE/32, 8, 4, 0, DATA_SIZE/32, 8, 4, 0, DATA_SIZE/32, 8, 4, 0, DATA_SIZE/32, 8, 4, 0>>, 9>,
 	types<ibvt_qp_dv, rdma_op_read, mkey_dv_old<mkey_layout_old_list_mrs<DATA_SIZE>>>,
 	types<ibvt_qp_dv, rdma_op_read, mkey_dv_old<mkey_layout_old_interleaved_mrs<1, DATA_SIZE, 0>>>
 	> mkey_test_list_layouts;
