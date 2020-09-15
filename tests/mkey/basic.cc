@@ -234,3 +234,35 @@ TEST_F(mkey_test_dv_custom, basicAttr_badAccessFlags) {
 	EXECL(rdma_op.submit(this->src_side, src_mkey.sge(), this->dst_side, dst_mkey.sge()));
 	EXECL(rdma_op.complete(this->src_side, this->dst_side, IBV_WC_SUCCESS, IBV_WC_REM_ACCESS_ERR));
 }
+
+TEST_F(mkey_test_dv_custom, basicAttr_listLayoutEntriesOverflow) {
+	// input SGL exceeds the max entries (1 is aligned to 4)
+	mkey_dv_new<mkey_access_flags<>,
+		    mkey_layout_new_list_mrs<DATA_SIZE / 8, DATA_SIZE / 8,
+					     DATA_SIZE / 8, DATA_SIZE / 8,
+					     DATA_SIZE / 8> >
+		src_mkey(*this, this->src_side.pd, 1,
+			 MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT);
+
+	EXECL(src_mkey.init());
+	EXECL(src_side.qp.wr_flags(IBV_SEND_SIGNALED | IBV_SEND_INLINE));
+	EXEC(src_side.qp.wr_start());
+	EXECL(src_mkey.wr_configure(this->src_side.qp));
+	EXEC(src_side.qp.wr_complete(ENOMEM));
+}
+
+TEST_F(mkey_test_dv_custom, basicAttr_interleavedLayoutEntriesOverflow) {
+	// input SGL exceeds the max entries (1 is aligned to 4)
+	mkey_dv_new<mkey_access_flags<>, mkey_valid,
+		    mkey_layout_new_interleaved_mrs<4, DATA_SIZE / 32, 1, 4, 0,
+						    DATA_SIZE / 32, 2, 4, 0,
+						    DATA_SIZE / 32, 3> >
+		src_mkey(*this, this->src_side.pd, 1,
+			 MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT);
+
+	EXECL(src_mkey.init());
+	EXECL(src_side.qp.wr_flags(IBV_SEND_SIGNALED | IBV_SEND_INLINE));
+	EXEC(src_side.qp.wr_start());
+	EXECL(src_mkey.wr_configure(this->src_side.qp));
+	EXEC(src_side.qp.wr_complete(ENOMEM));
+}
