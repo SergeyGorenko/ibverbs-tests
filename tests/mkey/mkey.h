@@ -224,7 +224,7 @@ struct mkey_layout_new_list : public mkey_layout_new {
 		struct ibv_qp_ex *qpx = ibv_qp_to_qp_ex(qp.qp);
 		struct mlx5dv_qp_ex *mqp = mlx5dv_qp_ex_from_ibv_qp_ex(qpx);
 
-		mlx5dv_wr_mkey_set_layout_list(mqp, sgl.size(), sgl.data());
+		mlx5dv_wr_set_mkey_layout_list(mqp, sgl.size(), sgl.data());
 	}
 
 	/* @todo: will not work on top of other mkey where addr is zero. */
@@ -324,7 +324,7 @@ struct mkey_layout_new_interleaved : public mkey_layout_new {
 		struct ibv_qp_ex *qpx = ibv_qp_to_qp_ex(qp.qp);
 		struct mlx5dv_qp_ex *mqp = mlx5dv_qp_ex_from_ibv_qp_ex(qpx);
 
-		mlx5dv_wr_mkey_set_layout_interleaved(mqp,
+		mlx5dv_wr_set_mkey_layout_interleaved(mqp,
 						      repeat_count,
 						      interleaved.size(),
 						      interleaved.data());
@@ -486,7 +486,7 @@ struct mkey_sig_block : public mkey_setter {
 		mkey.set_domain(&attr.mkey);
 		wire.set_domain(&attr.wire);
 		attr.check_mask = CheckMask;
-		mlx5dv_wr_mkey_set_sig_block(mqp, &attr);
+		mlx5dv_wr_set_mkey_sig_block(mqp, &attr);
 	}
 };
 
