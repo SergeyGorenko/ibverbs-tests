@@ -450,6 +450,44 @@ struct mkey_sig_none : public mkey_sig {
 	}
 };
 
+template<enum mlx5dv_sig_t10dif_bg_type BgType, enum mlx5dv_sig_t10dif_bg_caps BgTypeCaps>
+struct mkey_sig_t10dif_type {
+	static const enum mlx5dv_sig_t10dif_bg_type mlx5_t10dif_type = BgType;
+	static const enum mlx5dv_sig_t10dif_bg_caps mlx5_t10dif_caps = BgTypeCaps;
+};
+
+typedef mkey_sig_t10dif_type<MLX5DV_SIG_T10DIF_CRC, MLX5DV_SIG_T10DIF_BG_CAP_CRC> mkey_sig_t10dif_crc;
+typedef mkey_sig_t10dif_type<MLX5DV_SIG_T10DIF_CSUM, MLX5DV_SIG_T10DIF_BG_CAP_CSUM> mkey_sig_t10dif_csum;
+
+template<typename CrcType, uint16_t Bg, uint16_t AppTag, uint32_t RefTag, uint16_t Flags>
+struct mkey_sig_t10dif : public mkey_sig {
+	static constexpr uint32_t sig_size = 8;
+	struct mlx5dv_sig_t10dif dif;
+
+	virtual void set_sig(struct mlx5dv_sig_block_domain &domain) override {
+		domain.sig_type = MLX5DV_SIG_TYPE_T10DIF;
+		dif.bg_type = CrcType::mlx5_t10dif_type;
+		dif.bg = Bg;
+		dif.app_tag = AppTag;
+		dif.ref_tag = RefTag;
+		dif.flags = Flags;
+		// I'm going to remove apptag_check_mask from the API
+		// because it will not be available in BF-3.
+		// apptag_check_mask is always 0xffff for BF-3.
+		dif.apptag_check_mask = 0xffff;
+		domain.sig.dif = &dif;
+	}
+
+	static void sig_to_buf(uint64_t value, uint8_t *buf) {
+		uint32_t value32 = htonl(value & 0xFFFFFFFF);
+		memcpy(buf, &value32, sig_size);
+	}
+
+	static bool is_supported(struct mlx5dv_context &attr) {
+		return attr.sig_caps.t10dif_bg & CrcType::mlx5_t10dif_caps;
+	}
+};
+
 template<enum mlx5dv_sig_crc_type CrcType, enum mlx5dv_sig_crc_type_caps CrcTypeCaps>
 struct mkey_sig_crc_type {
 	static const enum mlx5dv_sig_crc_type mlx5_crc_type = CrcType;
@@ -581,6 +619,15 @@ struct mkey_sig_block : public mkey_setter {
 typedef mkey_sig_crc32<mkey_sig_crc_type_crc32, 0xFFFFFFFF> mkey_sig_crc32ieee;
 typedef mkey_sig_crc32<mkey_sig_crc_type_crc32c, 0xFFFFFFFF> mkey_sig_crc32c;
 typedef mkey_sig_crc64<mkey_sig_crc_type_crc64, 0xFFFFFFFFFFFFFFFF> mkey_sig_crc64xp10;
+typedef mkey_sig_t10dif<
+    mkey_sig_t10dif_crc, 0x1234, 0x5678, 0x9abcdef0,
+    MLX5DV_SIG_T10DIF_FLAG_REF_REMAP | MLX5DV_SIG_T10DIF_FLAG_APP_ESCAPE |
+	MLX5DV_SIG_T10DIF_FLAG_REF_ESCAPE> mkey_sig_t10dif_crc_default;
+typedef mkey_sig_t10dif<
+    mkey_sig_t10dif_csum, 0x1234, 0x5678, 0x9abcdef0,
+    MLX5DV_SIG_T10DIF_FLAG_REF_REMAP | MLX5DV_SIG_T10DIF_FLAG_APP_ESCAPE |
+	MLX5DV_SIG_T10DIF_FLAG_REF_ESCAPE> mkey_sig_t10dif_csum_default;
+typedef mkey_sig_crc32<mkey_sig_crc_type_crc32c, 0xFFFFFFFF> mkey_sig_crc32c;
 typedef mkey_sig_block_domain<mkey_sig_none, mkey_sig_block_size_512> mkey_sig_block_domain_none;
 typedef mkey_sig_block<mkey_sig_block_domain_none, mkey_sig_block_domain_none> mkey_sig_block_none;
 

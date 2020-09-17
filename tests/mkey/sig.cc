@@ -205,6 +205,15 @@ typedef testing::Types<
 	      mkey_sig_block<mkey_sig_block_domain_none,
 			     mkey_sig_block_domain<mkey_sig_crc64xp10, mkey_sig_block_size_512>>, 0>,
 
+	types<mkey_sig_block<mkey_sig_block_domain_none,
+			     mkey_sig_block_domain<mkey_sig_t10dif_crc_default, mkey_sig_block_size_512>>, 0,
+	      mkey_sig_block<mkey_sig_block_domain_none,
+			     mkey_sig_block_domain<mkey_sig_t10dif_crc_default, mkey_sig_block_size_512>>, 0>,
+	types<mkey_sig_block<mkey_sig_block_domain_none,
+			     mkey_sig_block_domain<mkey_sig_t10dif_csum_default, mkey_sig_block_size_512>>, 0,
+	      mkey_sig_block<mkey_sig_block_domain_none,
+			     mkey_sig_block_domain<mkey_sig_t10dif_csum_default, mkey_sig_block_size_512>>, 0>,
+
 	// Mkey domain
 	types<mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
 			     mkey_sig_block_domain_none>, 0x699ACA21,
@@ -219,6 +228,22 @@ typedef testing::Types<
 INSTANTIATE_TYPED_TEST_CASE_P(sig_types, mkey_test_sig_block, mkey_test_list_sig_types);
 
 typedef testing::Types<
+	types<mkey_sig_block<mkey_sig_block_domain_none,
+			     mkey_sig_block_domain<mkey_sig_t10dif_csum_default, mkey_sig_block_size_512>>, 0,
+	      mkey_sig_block<mkey_sig_block_domain_none,
+			     mkey_sig_block_domain<mkey_sig_t10dif_csum_default, mkey_sig_block_size_512>>, 0,
+	      1, rdma_op_read<ibvt_qp_dv>>,
+	types<mkey_sig_block<mkey_sig_block_domain_none,
+			     mkey_sig_block_domain<mkey_sig_t10dif_csum_default, mkey_sig_block_size_512>>, 0,
+	      mkey_sig_block<mkey_sig_block_domain_none,
+			     mkey_sig_block_domain<mkey_sig_t10dif_csum_default, mkey_sig_block_size_512>>, 0,
+	      1, rdma_op_write<ibvt_qp_dv>>,
+	types<mkey_sig_block<mkey_sig_block_domain_none,
+			     mkey_sig_block_domain<mkey_sig_t10dif_csum_default, mkey_sig_block_size_512>>, 0,
+	      mkey_sig_block<mkey_sig_block_domain_none,
+			     mkey_sig_block_domain<mkey_sig_t10dif_csum_default, mkey_sig_block_size_512>>, 0,
+	      1, rdma_op_send<ibvt_qp_dv>>,
+
 	types<mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
 			     mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>, 0x699ACA21,
 	      mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
