@@ -253,7 +253,7 @@ TEST_F(mkey_test_dv_custom, basicAttr_listLayoutEntriesOverflow) {
 
 TEST_F(mkey_test_dv_custom, basicAttr_interleavedLayoutEntriesOverflow) {
 	// input SGL exceeds the max entries (1 is aligned to 4)
-	mkey_dv_new<mkey_access_flags<>, mkey_valid,
+	mkey_dv_new<mkey_access_flags<>,
 		    mkey_layout_new_interleaved_mrs<4, DATA_SIZE / 32, 1, 4, 0,
 						    DATA_SIZE / 32, 2, 4, 0,
 						    DATA_SIZE / 32, 3> >
