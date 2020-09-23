@@ -584,45 +584,6 @@ typedef mkey_sig_crc64<mkey_sig_crc_type_crc64, 0xFFFFFFFFFFFFFFFF> mkey_sig_crc
 typedef mkey_sig_block_domain<mkey_sig_none, mkey_sig_block_size_512> mkey_sig_block_domain_none;
 typedef mkey_sig_block<mkey_sig_block_domain_none, mkey_sig_block_domain_none> mkey_sig_block_none;
 
-struct mkey_wr_data_setter : public ibvt_mr, public mkey_setter {
-	// Required by HW
-	static const size_t entry_size = 16;
-	static const size_t alignment = 64;
-
-	static size_t alignup(size_t size) {
-		return (size + alignment - 1) & ~(alignment - 1);
-	}
-
-	static size_t wr_data_size(uint16_t max_entries) {
-		return alignup(max_entries * entry_size);
-        }
-
-	mkey_wr_data_setter(ibvt_env &env, ibvt_pd &pd, uint16_t me) :
-		ibvt_mr(env, pd, wr_data_size(me)) {}
-
-
-	mkey_wr_data_setter(const struct mkey_wr_data_setter &) = delete;
-
-	mkey_wr_data_setter(struct mkey_wr_data_setter &&other) :
-		ibvt_mr(std::move(other)) {}
-
-	mkey_wr_data_setter(struct ibvt_mr &&mr) :
-		ibvt_mr(std::move(mr)) {}
-
-	virtual void init() override {
-		ibvt_mr::init();
-	}
-
-	virtual void wr_set(ibvt_qp &qp) override {
-		struct ibv_qp_ex *qpx = ibv_qp_to_qp_ex(qp.qp);
-		struct mlx5dv_qp_ex *mqp = mlx5dv_qp_ex_from_ibv_qp_ex(qpx);
-		struct ibv_sge sge = this->sge();
-
-		EXECL(mlx5dv_wr_set_mkey_data_mr(mqp, sge.lkey, (void *)sge.addr,
-						 sge.length));
-	}
-};
-
 template<typename ...Setters>
 struct mkey_dv_new : public mkey_dv {
 	struct mkey_layout_new *layout;
