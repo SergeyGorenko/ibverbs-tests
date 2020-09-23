@@ -248,10 +248,6 @@ struct sig_t10dif : public sig {
 		   dif.app_tag = app_tag;
 		   dif.ref_tag = ref_tag;
 		   dif.flags = flags;
-		   // I'm going to remove apptag_check_mask from the API
-		   // because it will not be available in BF-3.
-		   // apptag_check_mask is always 0xffff for BF-3.
-		   dif.apptag_check_mask = 0xffff;
 	}
 
 	virtual void init_sig_domain(struct mlx5dv_sig_block_domain *d) {
