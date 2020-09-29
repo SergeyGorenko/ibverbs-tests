@@ -188,25 +188,25 @@ template<typename ...Setters>
 using mkey_dv_new_basic = mkey_dv_new<mkey_access_flags<>, Setters...>;
 
 typedef testing::Types<
-	types<ibvt_qp_dv, rdma_op_read, mkey_dv_new_basic<mkey_layout_new_list_mrs<DATA_SIZE>>>,
-	types<ibvt_qp_dv, rdma_op_read, mkey_dv_new_basic<mkey_layout_new_list_mrs<DATA_SIZE/4, DATA_SIZE/4, DATA_SIZE/4, DATA_SIZE/4>>>,
-	types<ibvt_qp_dv, rdma_op_read, mkey_dv_new_basic<mkey_layout_new_list_mrs<DATA_SIZE/8, DATA_SIZE/8, DATA_SIZE/8, DATA_SIZE/8, DATA_SIZE/8, DATA_SIZE/8, DATA_SIZE/8, DATA_SIZE/8>>, 8>,
-	types<ibvt_qp_dv, rdma_op_read, mkey_dv_new_basic<mkey_layout_new_interleaved_mrs<1, DATA_SIZE, 0>>>,
-	types<ibvt_qp_dv, rdma_op_read, mkey_dv_new_basic<mkey_layout_new_interleaved_mrs<2, DATA_SIZE/4, 8, 4, 0>>>,
-	types<ibvt_qp_dv, rdma_op_read, mkey_dv_new_basic<mkey_layout_new_interleaved_mrs<4, DATA_SIZE/32, 8, 4, 0, DATA_SIZE/32, 8, 4, 0, DATA_SIZE/32, 8, 4, 0, DATA_SIZE/32, 8, 4, 0>>, 9>,
-	types<ibvt_qp_dv, rdma_op_read, mkey_dv_old<mkey_layout_old_list_mrs<DATA_SIZE>>>,
-	types<ibvt_qp_dv, rdma_op_read, mkey_dv_old<mkey_layout_old_interleaved_mrs<1, DATA_SIZE, 0>>>
+	types<ibvt_qp_dv<>, rdma_op_read, mkey_dv_new_basic<mkey_layout_new_list_mrs<DATA_SIZE>>>,
+	types<ibvt_qp_dv<>, rdma_op_read, mkey_dv_new_basic<mkey_layout_new_list_mrs<DATA_SIZE/4, DATA_SIZE/4, DATA_SIZE/4, DATA_SIZE/4>>>,
+	types<ibvt_qp_dv<>, rdma_op_read, mkey_dv_new_basic<mkey_layout_new_list_mrs<DATA_SIZE/8, DATA_SIZE/8, DATA_SIZE/8, DATA_SIZE/8, DATA_SIZE/8, DATA_SIZE/8, DATA_SIZE/8, DATA_SIZE/8>>, 8>,
+	types<ibvt_qp_dv<>, rdma_op_read, mkey_dv_new_basic<mkey_layout_new_interleaved_mrs<1, DATA_SIZE, 0>>>,
+	types<ibvt_qp_dv<>, rdma_op_read, mkey_dv_new_basic<mkey_layout_new_interleaved_mrs<2, DATA_SIZE/4, 8, 4, 0>>>,
+	types<ibvt_qp_dv<>, rdma_op_read, mkey_dv_new_basic<mkey_layout_new_interleaved_mrs<4, DATA_SIZE/32, 8, 4, 0, DATA_SIZE/32, 8, 4, 0, DATA_SIZE/32, 8, 4, 0, DATA_SIZE/32, 8, 4, 0>>, 9>,
+	types<ibvt_qp_dv<>, rdma_op_read, mkey_dv_old<mkey_layout_old_list_mrs<DATA_SIZE>>>,
+	types<ibvt_qp_dv<>, rdma_op_read, mkey_dv_old<mkey_layout_old_interleaved_mrs<1, DATA_SIZE, 0>>>
 	> mkey_test_list_layouts;
 INSTANTIATE_TYPED_TEST_CASE_P(layouts, mkey_test_basic, mkey_test_list_layouts);
 
 typedef testing::Types<
-	types<ibvt_qp_dv, rdma_op_read, mkey_dv_new_basic<mkey_layout_new_list_mrs<DATA_SIZE>>>,
-	types<ibvt_qp_dv, rdma_op_write, mkey_dv_new_basic<mkey_layout_new_list_mrs<DATA_SIZE>>>,
-	types<ibvt_qp_dv, rdma_op_send, mkey_dv_new_basic<mkey_layout_new_list_mrs<DATA_SIZE>>>
+	types<ibvt_qp_dv<>, rdma_op_read, mkey_dv_new_basic<mkey_layout_new_list_mrs<DATA_SIZE>>>,
+	types<ibvt_qp_dv<>, rdma_op_write, mkey_dv_new_basic<mkey_layout_new_list_mrs<DATA_SIZE>>>,
+	types<ibvt_qp_dv<>, rdma_op_send, mkey_dv_new_basic<mkey_layout_new_list_mrs<DATA_SIZE>>>
 	> mkey_test_list_ops;
 INSTANTIATE_TYPED_TEST_CASE_P(operations, mkey_test_basic, mkey_test_list_ops);
 
-typedef mkey_test_base<ibvt_qp_dv> mkey_test_dv_custom;
+typedef mkey_test_base<ibvt_qp_dv<>> mkey_test_dv_custom;
 
 TEST_F(mkey_test_dv_custom, basicAttr_badAccessFlags) {
 	// Remote read is not allowed from source mkey
@@ -218,7 +218,7 @@ TEST_F(mkey_test_dv_custom, basicAttr_badAccessFlags) {
 		    mkey_layout_new_list_mrs<DATA_SIZE>> dst_mkey(*this,
 								  this->dst_side.pd,
 								  1, MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT);
-	rdma_op_read<ibvt_qp_dv> rdma_op;
+	rdma_op_read<ibvt_qp_dv<>> rdma_op;
 
 	EXECL(src_mkey.init());
 	EXECL(dst_mkey.init());

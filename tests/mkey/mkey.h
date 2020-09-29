@@ -32,17 +32,20 @@
 
 #include <algorithm>
 
+template<uint32_t MaxSendWr = 128, uint32_t MaxSendSge = 16,
+	 uint32_t MaxRecvWr = 32, uint32_t MaxRecvSge = 4,
+	 uint32_t MaxInlineData = 512>
 struct ibvt_qp_dv : public ibvt_qp_rc {
 	ibvt_qp_dv(ibvt_env &e, ibvt_pd &p, ibvt_cq &c) :
 		ibvt_qp_rc(e, p, c) {}
 
 	virtual void init_attr(struct ibv_qp_init_attr_ex &attr) override {
 		ibvt_qp_rc::init_attr(attr);
-		attr.cap.max_send_wr = 128;
-		attr.cap.max_send_sge = 16;
-		attr.cap.max_recv_wr = 32;
-		attr.cap.max_recv_sge = 4;
-		attr.cap.max_inline_data = 512;
+		attr.cap.max_send_wr = MaxSendWr;
+		attr.cap.max_send_sge = MaxSendSge;
+		attr.cap.max_recv_wr = MaxRecvWr;
+		attr.cap.max_recv_sge = MaxRecvSge;
+		attr.cap.max_inline_data = MaxInlineData;
 		attr.comp_mask |= IBV_QP_INIT_ATTR_SEND_OPS_FLAGS;
 		attr.send_ops_flags = IBV_QP_EX_WITH_RDMA_WRITE |
 				      IBV_QP_EX_WITH_SEND |

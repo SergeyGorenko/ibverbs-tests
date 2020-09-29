@@ -50,9 +50,10 @@
 
 template<typename SrcSigBlock, uint64_t SrcValue,
 	 typename DstSigBlock, uint64_t DstValue,
-	 uint32_t NumBlocks = 1,
-	 typename RdmaOp = rdma_op_read<ibvt_qp_dv>>
-struct _mkey_test_sig_block : public mkey_test_base<ibvt_qp_dv> {
+	 uint32_t NumBlocks = 1, 
+	 typename Qp = ibvt_qp_dv<>, 
+	 typename RdmaOp = rdma_op_read<ibvt_qp_dv<>>>
+struct _mkey_test_sig_block : public mkey_test_base<Qp> {
 	static constexpr uint32_t src_block_size = SrcSigBlock::MkeyDomainType::BlockSizeType::block_size;
 	static constexpr uint32_t src_sig_size = SrcSigBlock::MkeyDomainType::SigType::sig_size;
 	static constexpr uint32_t src_data_size = NumBlocks * (src_block_size + src_sig_size);
@@ -75,7 +76,7 @@ struct _mkey_test_sig_block : public mkey_test_base<ibvt_qp_dv> {
 			 MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE) {}
 
 	virtual void SetUp() override {
-		mkey_test_base<ibvt_qp_dv>::SetUp();
+		mkey_test_base<Qp>::SetUp();
 		EXEC(src_mkey.init());
 		EXEC(dst_mkey.init());
 	}
@@ -151,20 +152,23 @@ struct _mkey_test_sig_block : public mkey_test_base<ibvt_qp_dv> {
 template<typename T_SrcSigBlock, uint64_t T_SrcValue,
 	 typename T_DstSigBlock, uint64_t T_DstValue,
 	 uint32_t T_NumBlocks = 1,
-	 typename T_RdmaOp = rdma_op_read<ibvt_qp_dv>>
+	 typename T_Qp = ibvt_qp_dv<>, 
+	 template<typename> typename T_RdmaOp = rdma_op_read>
 struct types {
 	typedef T_SrcSigBlock SrcSigBlock;
 	static constexpr uint64_t SrcValue = T_SrcValue;
 	typedef T_DstSigBlock DstSigBlock;
 	static constexpr uint64_t DstValue = T_DstValue;
 	static constexpr uint64_t NumBlocks = T_NumBlocks;
-	typedef T_RdmaOp RdmaOp;
+	typedef T_Qp Qp;
+	typedef T_RdmaOp<T_Qp> RdmaOp;
 };
 
 template<typename T>
 using mkey_test_sig_block = _mkey_test_sig_block<typename T::SrcSigBlock, T::SrcValue,
 						 typename T::DstSigBlock, T::DstValue,
 						 T::NumBlocks,
+						 typename T::Qp,
 						 typename T::RdmaOp>;
 
 TYPED_TEST_CASE_P(mkey_test_sig_block);
@@ -232,39 +236,50 @@ typedef testing::Types<
 			     mkey_sig_block_domain<mkey_sig_t10dif_csum_default, mkey_sig_block_size_512>>, 0,
 	      mkey_sig_block<mkey_sig_block_domain_none,
 			     mkey_sig_block_domain<mkey_sig_t10dif_csum_default, mkey_sig_block_size_512>>, 0,
-	      1, rdma_op_read<ibvt_qp_dv>>,
+	      1, ibvt_qp_dv<>, rdma_op_read>,
+
 	types<mkey_sig_block<mkey_sig_block_domain_none,
 			     mkey_sig_block_domain<mkey_sig_t10dif_csum_default, mkey_sig_block_size_512>>, 0,
 	      mkey_sig_block<mkey_sig_block_domain_none,
 			     mkey_sig_block_domain<mkey_sig_t10dif_csum_default, mkey_sig_block_size_512>>, 0,
-	      1, rdma_op_write<ibvt_qp_dv>>,
+	      1, ibvt_qp_dv<>, rdma_op_read>,
 	types<mkey_sig_block<mkey_sig_block_domain_none,
 			     mkey_sig_block_domain<mkey_sig_t10dif_csum_default, mkey_sig_block_size_512>>, 0,
 	      mkey_sig_block<mkey_sig_block_domain_none,
 			     mkey_sig_block_domain<mkey_sig_t10dif_csum_default, mkey_sig_block_size_512>>, 0,
-	      1, rdma_op_send<ibvt_qp_dv>>,
+	      1, ibvt_qp_dv<>, rdma_op_write>,
+	types<mkey_sig_block<mkey_sig_block_domain_none,
+			     mkey_sig_block_domain<mkey_sig_t10dif_csum_default, mkey_sig_block_size_512>>, 0,
+	      mkey_sig_block<mkey_sig_block_domain_none,
+			     mkey_sig_block_domain<mkey_sig_t10dif_csum_default, mkey_sig_block_size_512>>, 0,
+	      1, ibvt_qp_dv<>, rdma_op_send>,
 
 	types<mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
 			     mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>, 0x699ACA21,
 	      mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
 			     mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>, 0x699ACA21,
-	      1, rdma_op_read<ibvt_qp_dv>>,
+	      1, ibvt_qp_dv<>, rdma_op_read>,
 	types<mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
 			     mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>, 0x699ACA21,
 	      mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
 			     mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>, 0x699ACA21,
-	      1, rdma_op_write<ibvt_qp_dv>>,
+	      1, ibvt_qp_dv<>, rdma_op_write>,
 	types<mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
 			     mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>, 0x699ACA21,
 	      mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
 			     mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>, 0x699ACA21,
-	      1, rdma_op_send<ibvt_qp_dv>>
+	      1, ibvt_qp_dv<128,16,32,4,512>, rdma_op_write>,
+	types<mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
+			     mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>, 0x699ACA21,
+	      mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
+			     mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>, 0x699ACA21,
+	      1, ibvt_qp_dv<>, rdma_op_send>
 
 	> mkey_test_list_ops;
 INSTANTIATE_TYPED_TEST_CASE_P(ops, mkey_test_sig_block, mkey_test_list_ops);
 
 
-typedef mkey_test_base<ibvt_qp_dv> mkey_test_sig_custom;
+typedef mkey_test_base<ibvt_qp_dv<>> mkey_test_sig_custom;
 
 TEST_F(mkey_test_sig_custom, noBlockSigAttr) {
 	// @todo: add caps check
@@ -283,3 +298,72 @@ TEST_F(mkey_test_sig_custom, noBlockSigAttr) {
 	EXECL(src_mkey.wr_configure(this->src_side.qp));
 	EXEC(src_side.qp.wr_complete(EOPNOTSUPP));
 }
+
+typedef mkey_test_base<ibvt_qp_dv<2,16,32,4,512>> mkey_test_sig_max_send_wr;
+TEST_F(mkey_test_sig_max_send_wr, maxSendWrTooSmall) {
+	//SIG_CHK_SUT();
+
+	mkey_dv_new<
+	    mkey_access_flags<>, mkey_valid,
+	    mkey_layout_new_list_mrs<DATA_SIZE>,
+	    mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee,
+						 mkey_sig_block_size_512>,
+			   mkey_sig_block_domain<mkey_sig_crc32ieee,
+						 mkey_sig_block_size_512> > >
+	src_mkey(*this, this->src_side.pd, 1,
+		 MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT |
+		     MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE);
+
+	EXECL(src_mkey.init());
+
+	this->src_side.qp.wr_flags(IBV_SEND_SIGNALED | IBV_SEND_INLINE);
+	EXEC(src_side.qp.wr_start());
+	EXECL(src_mkey.wr_configure(this->src_side.qp));
+	EXEC(src_side.qp.wr_complete(ENOMEM));
+}
+
+typedef mkey_test_base<ibvt_qp_dv<128,2,32,4,512>> mkey_test_sig_max_send_sge;
+TEST_F(mkey_test_sig_max_send_sge, maxSendSgeTooSmall) {
+	//SIG_CHK_SUT();
+
+	mkey_dv_new<
+	    mkey_access_flags<>, mkey_valid,
+	    mkey_layout_new_list_mrs<DATA_SIZE/8, DATA_SIZE/8, DATA_SIZE/8, DATA_SIZE/8, DATA_SIZE/8>,
+	    mkey_sig_block<mkey_sig_block_domain_none,
+			   mkey_sig_block_domain<mkey_sig_t10dif_crc_default,
+						 mkey_sig_block_size_512> > >
+	src_mkey(*this, this->src_side.pd, 1,
+		 MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT |
+		     MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE);
+
+	EXECL(src_mkey.init());
+
+	this->src_side.qp.wr_flags(IBV_SEND_SIGNALED | IBV_SEND_INLINE);
+	EXEC(src_side.qp.wr_start());
+	EXECL(src_mkey.wr_configure(this->src_side.qp));
+	EXEC(src_side.qp.wr_complete(ENOMEM));
+}
+
+
+typedef mkey_test_base<ibvt_qp_dv<128,16,32,4,64>> mkey_test_sig_max_inline_data;
+TEST_F(mkey_test_sig_max_inline_data, maxInlineDataTooSmall) {
+	//SIG_CHK_SUT();
+
+	mkey_dv_new<
+	    mkey_access_flags<>, mkey_valid,
+	    mkey_layout_new_list_mrs<DATA_SIZE/8, DATA_SIZE/8, DATA_SIZE/8, DATA_SIZE/8, DATA_SIZE/8>,
+	    mkey_sig_block<mkey_sig_block_domain_none,
+			   mkey_sig_block_domain<mkey_sig_t10dif_crc_default,
+						 mkey_sig_block_size_512> > >
+	src_mkey(*this, this->src_side.pd, 1,
+		 MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT |
+		     MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE);
+
+	EXECL(src_mkey.init());
+
+	this->src_side.qp.wr_flags(IBV_SEND_SIGNALED | IBV_SEND_INLINE);
+	EXEC(src_side.qp.wr_start());
+	EXECL(src_mkey.wr_configure(this->src_side.qp));
+	EXEC(src_side.qp.wr_complete(ENOMEM));
+}
+
