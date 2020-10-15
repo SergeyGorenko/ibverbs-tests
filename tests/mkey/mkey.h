@@ -474,10 +474,6 @@ struct mkey_sig_t10dif : public mkey_sig {
 		dif.app_tag = AppTag;
 		dif.ref_tag = RefTag;
 		dif.flags = Flags;
-		// I'm going to remove apptag_check_mask from the API
-		// because it will not be available in BF-3.
-		// apptag_check_mask is always 0xffff for BF-3.
-		dif.apptag_check_mask = 0xffff;
 		domain.sig.dif = &dif;
 	}
 
