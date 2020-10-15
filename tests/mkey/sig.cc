@@ -304,7 +304,7 @@ TEST_F(mkey_test_sig_max_send_wr, maxSendWrTooSmall) {
 	//SIG_CHK_SUT();
 
 	mkey_dv_new<
-	    mkey_access_flags<>, mkey_valid,
+	    mkey_access_flags<>,
 	    mkey_layout_new_list_mrs<DATA_SIZE>,
 	    mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee,
 						 mkey_sig_block_size_512>,
@@ -327,7 +327,7 @@ TEST_F(mkey_test_sig_max_send_sge, maxSendSgeTooSmall) {
 	//SIG_CHK_SUT();
 
 	mkey_dv_new<
-	    mkey_access_flags<>, mkey_valid,
+	    mkey_access_flags<>,
 	    mkey_layout_new_list_mrs<DATA_SIZE/8, DATA_SIZE/8, DATA_SIZE/8, DATA_SIZE/8, DATA_SIZE/8>,
 	    mkey_sig_block<mkey_sig_block_domain_none,
 			   mkey_sig_block_domain<mkey_sig_t10dif_crc_default,
@@ -350,7 +350,7 @@ TEST_F(mkey_test_sig_max_inline_data, maxInlineDataTooSmall) {
 	//SIG_CHK_SUT();
 
 	mkey_dv_new<
-	    mkey_access_flags<>, mkey_valid,
+	    mkey_access_flags<>,
 	    mkey_layout_new_list_mrs<DATA_SIZE/8, DATA_SIZE/8, DATA_SIZE/8, DATA_SIZE/8, DATA_SIZE/8>,
 	    mkey_sig_block<mkey_sig_block_domain_none,
 			   mkey_sig_block_domain<mkey_sig_t10dif_crc_default,
