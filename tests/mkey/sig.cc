@@ -502,10 +502,10 @@ TEST_F(mkey_test_sig_corrupt, refTagError) {
 //refTag is changed to a non-defualt value (e.g., f0debc9a)
 typedef _mkey_test_sig_block<
     mkey_sig_block<
-	mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default,
+	mkey_sig_block_domain<mkey_sig_t10dif_type1<mkey_sig_t10dif_crc, 0x4234, 0x5678, 0xff000000>,
 			      mkey_sig_block_size_512>,
 	mkey_sig_block_domain<
-	    mkey_sig_t10dif_type1<mkey_sig_t10dif_crc, 0x4234, 0x5678, 0xff000000>,
+	    mkey_sig_t10dif_crc_type1_default,
 	    mkey_sig_block_size_512> >,
     0x9ec65678f0debc9a,
     mkey_sig_block<mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default,
