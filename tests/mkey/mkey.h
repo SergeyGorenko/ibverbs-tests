@@ -31,6 +31,19 @@
 #define MKEY_H
 
 #include <algorithm>
+#include <stdint.h>
+#include <endian.h>
+
+struct dif {
+	uint16_t guard;
+	uint16_t app_tag;
+	uint32_t ref_tag;
+};
+
+typedef union {
+	uint64_t sig; // sig is in Big Endian (Network) mode
+	struct dif dif;
+} dif_to_sig;
 
 template<uint32_t MaxSendWr = 128, uint32_t MaxSendSge = 16,
 	 uint32_t MaxRecvWr = 32, uint32_t MaxRecvSge = 4,
@@ -150,6 +163,7 @@ struct mkey : public ibvt_abstract_mr {
 	}
 
 	virtual void check() = 0;
+	virtual void check(int err_type) = 0;
 };
 
 struct mkey_dv : public mkey {
@@ -191,6 +205,12 @@ struct mkey_dv : public mkey {
 		struct mlx5dv_mkey_err err;
 		DO(mlx5dv_mkey_check(mlx5_mkey, &err));
 		ASSERT_EQ(MLX5DV_MKEY_NO_ERR, err.err_type);
+	}
+
+	virtual void check(int err_type) override {
+		struct mlx5dv_mkey_err err;
+		DO(mlx5dv_mkey_check(mlx5_mkey, &err));
+		ASSERT_EQ(err_type, err.err_type);
 	}
 };
 
@@ -446,7 +466,7 @@ struct mkey_sig_none : public mkey_sig {
 		domain.sig_type = MLX5DV_SIG_TYPE_NONE;
 	}
 
-	static void sig_to_buf(uint64_t value, uint8_t *buf) {}
+	static void sig_to_buf(uint64_t value, uint8_t *buf, uint32_t block_index) {}
 
 	static bool is_supported(struct mlx5dv_context &attr) {
 		return true;
@@ -462,28 +482,64 @@ struct mkey_sig_t10dif_type {
 typedef mkey_sig_t10dif_type<MLX5DV_SIG_T10DIF_CRC, MLX5DV_SIG_T10DIF_BG_CAP_CRC> mkey_sig_t10dif_crc;
 typedef mkey_sig_t10dif_type<MLX5DV_SIG_T10DIF_CSUM, MLX5DV_SIG_T10DIF_BG_CAP_CSUM> mkey_sig_t10dif_csum;
 
-template<typename CrcType, uint16_t Bg, uint16_t AppTag, uint32_t RefTag, uint16_t Flags>
-struct mkey_sig_t10dif : public mkey_sig {
+template<typename BgType, uint16_t Bg, uint16_t AppTag, uint32_t RefTag>
+struct mkey_sig_t10dif_type1 : public mkey_sig {
 	static constexpr uint32_t sig_size = 8;
 	struct mlx5dv_sig_t10dif dif;
 
 	virtual void set_sig(struct mlx5dv_sig_block_domain &domain) override {
 		domain.sig_type = MLX5DV_SIG_TYPE_T10DIF;
-		dif.bg_type = CrcType::mlx5_t10dif_type;
+		dif.bg_type = BgType::mlx5_t10dif_type;
 		dif.bg = Bg;
 		dif.app_tag = AppTag;
 		dif.ref_tag = RefTag;
-		dif.flags = Flags;
+		dif.flags = MLX5DV_SIG_T10DIF_FLAG_REF_REMAP |
+			    MLX5DV_SIG_T10DIF_FLAG_APP_ESCAPE |
+			    MLX5DV_SIG_T10DIF_FLAG_REF_ESCAPE;
 		domain.sig.dif = &dif;
 	}
 
-	static void sig_to_buf(uint64_t value, uint8_t *buf) {
-		uint32_t value32 = htonl(value & 0xFFFFFFFF);
-		memcpy(buf, &value32, sig_size);
+	static void sig_to_buf(uint64_t value, uint8_t *buf, uint32_t block_index) {
+		dif_to_sig dif;
+		dif.sig = htobe64(value);
+		if (ntohs(dif.dif.app_tag) != 0xFFFF) {
+			dif.dif.ref_tag = ntohl(dif.dif.ref_tag);
+			dif.dif.ref_tag += block_index;
+			dif.dif.ref_tag = htonl(dif.dif.ref_tag);
+		}
+
+		*(uint64_t *)buf = dif.sig;
 	}
 
 	static bool is_supported(struct mlx5dv_context &attr) {
-		return attr.sig_caps.t10dif_bg & CrcType::mlx5_t10dif_caps;
+		return attr.sig_caps.t10dif_bg & BgType::mlx5_t10dif_caps &&
+		       attr.sig_caps.block_prot & MLX5DV_SIG_PROT_CAP_T10DIF;
+	}
+};
+
+template<typename BgType, uint16_t Bg, uint16_t AppTag, uint32_t RefTag>
+struct mkey_sig_t10dif_type3 : public mkey_sig {
+	static constexpr uint32_t sig_size = 8;
+	struct mlx5dv_sig_t10dif dif;
+
+	virtual void set_sig(struct mlx5dv_sig_block_domain &domain) override {
+		domain.sig_type = MLX5DV_SIG_TYPE_T10DIF;
+		dif.bg_type = BgType::mlx5_t10dif_type;
+		dif.bg = Bg;
+		dif.app_tag = AppTag;
+		dif.ref_tag = RefTag;
+		dif.flags = MLX5DV_SIG_T10DIF_FLAG_APP_ESCAPE |
+			    MLX5DV_SIG_T10DIF_FLAG_REF_ESCAPE;
+		domain.sig.dif = &dif;
+	}
+
+	static void sig_to_buf(uint64_t value, uint8_t *buf, uint32_t block_index) {
+		*(uint64_t*)buf = htobe64(value);
+	}
+
+	static bool is_supported(struct mlx5dv_context &attr) {
+		return attr.sig_caps.t10dif_bg & BgType::mlx5_t10dif_caps &&
+		       attr.sig_caps.block_prot & MLX5DV_SIG_PROT_CAP_T10DIF;
 	}
 };
 
@@ -509,13 +565,14 @@ struct mkey_sig_crc32 : public mkey_sig {
 		domain.sig.crc = &crc;
 	}
 
-	static void sig_to_buf(uint64_t value, uint8_t *buf) {
+	static void sig_to_buf(uint64_t value, uint8_t *buf, uint32_t block_index) {
 		uint32_t value32 = htonl(value & 0xFFFFFFFF);
 		memcpy(buf, &value32, sig_size);
 	}
 
 	static bool is_supported(struct mlx5dv_context &attr) {
-		return attr.sig_caps.crc_type & CrcType::mlx5_crc_type_caps;
+		return attr.sig_caps.crc_type & CrcType::mlx5_crc_type_caps &&
+		       attr.sig_caps.block_prot & MLX5DV_SIG_PROT_CAP_CRC;
 	}
 };
 
@@ -531,15 +588,13 @@ struct mkey_sig_crc64 : public mkey_sig {
 		domain.sig.crc = &crc;
 	}
 
-	static void sig_to_buf(uint64_t value, uint8_t *buf) {
-#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-		value = ((uint64_t)htonl((value) & 0xFFFFFFFFLL) << 32) | htonl((value) >> 32);
-#endif
-		memcpy(buf, &value, sig_size);
+	static void sig_to_buf(uint64_t value, uint8_t *buf, uint32_t block_index) {
+		*(uint64_t*)buf = htobe64(value);
 	}
 
 	static bool is_supported(struct mlx5dv_context &attr) {
-		return attr.sig_caps.crc_type & CrcType::mlx5_crc_type_caps;
+		return attr.sig_caps.crc_type & CrcType::mlx5_crc_type_caps &&
+		       attr.sig_caps.block_prot & MLX5DV_SIG_PROT_CAP_CRC;
 	}
 };
 
@@ -618,15 +673,12 @@ struct mkey_sig_block : public mkey_setter {
 typedef mkey_sig_crc32<mkey_sig_crc_type_crc32, 0xFFFFFFFF> mkey_sig_crc32ieee;
 typedef mkey_sig_crc32<mkey_sig_crc_type_crc32c, 0xFFFFFFFF> mkey_sig_crc32c;
 typedef mkey_sig_crc64<mkey_sig_crc_type_crc64, 0xFFFFFFFFFFFFFFFF> mkey_sig_crc64xp10;
-typedef mkey_sig_t10dif<
-    mkey_sig_t10dif_crc, 0x1234, 0x5678, 0x9abcdef0,
-    MLX5DV_SIG_T10DIF_FLAG_REF_REMAP | MLX5DV_SIG_T10DIF_FLAG_APP_ESCAPE |
-	MLX5DV_SIG_T10DIF_FLAG_REF_ESCAPE> mkey_sig_t10dif_crc_default;
-typedef mkey_sig_t10dif<
-    mkey_sig_t10dif_csum, 0x1234, 0x5678, 0x9abcdef0,
-    MLX5DV_SIG_T10DIF_FLAG_REF_REMAP | MLX5DV_SIG_T10DIF_FLAG_APP_ESCAPE |
-	MLX5DV_SIG_T10DIF_FLAG_REF_ESCAPE> mkey_sig_t10dif_csum_default;
-typedef mkey_sig_crc32<mkey_sig_crc_type_crc32c, 0xFFFFFFFF> mkey_sig_crc32c;
+typedef mkey_sig_t10dif_type1<mkey_sig_t10dif_crc, 0xffff, 0x5678, 0xf0debc9a> mkey_sig_t10dif_crc_type1_default;
+typedef mkey_sig_t10dif_type3<mkey_sig_t10dif_crc, 0xffff, 0x5678, 0xf0debc9a> mkey_sig_t10dif_crc_type3_default;
+
+typedef mkey_sig_t10dif_type1<mkey_sig_t10dif_csum, 0xffff, 0x5678, 0xf0debc9a> mkey_sig_t10dif_csum_type1_default;
+typedef mkey_sig_t10dif_type3<mkey_sig_t10dif_csum, 0xffff, 0x5678, 0xf0debc9a> mkey_sig_t10dif_csum_type3_default;
+
 typedef mkey_sig_block_domain<mkey_sig_none, mkey_sig_block_size_512> mkey_sig_block_domain_none;
 typedef mkey_sig_block<mkey_sig_block_domain_none, mkey_sig_block_domain_none> mkey_sig_block_none;
 
