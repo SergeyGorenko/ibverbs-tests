@@ -474,7 +474,8 @@ TEST_F(mkey_test_sig_corrupt, guardError) {
 	EXEC(execute_rdma());
 	// this->src_mkey.layout->dump(0, 0, "SRC");
 	// this->dst_mkey.layout->dump(0, 0, "DST");
-	this->src_mkey.check(MLX5DV_MKEY_SIG_BLOCK_BAD_GUARD);
+	this->src_mkey.check(MLX5DV_MKEY_SIG_BLOCK_BAD_GUARD, 0x9ec6, 0xebad,
+			     src_block_size + src_sig_size - 1);
 }
 
 TEST_F(mkey_test_sig_corrupt, appTagError) {
@@ -485,7 +486,8 @@ TEST_F(mkey_test_sig_corrupt, appTagError) {
 	EXEC(execute_rdma());
 	// this->src_mkey.layout->dump(0, 0, "SRC");
 	// this->dst_mkey.layout->dump(0, 0, "DST");
-	this->src_mkey.check(MLX5DV_MKEY_SIG_BLOCK_BAD_APPTAG);
+	this->src_mkey.check(MLX5DV_MKEY_SIG_BLOCK_BAD_APPTAG, 0xa978, 0x5678,
+			     src_block_size + src_sig_size - 1);
 }
 
 TEST_F(mkey_test_sig_corrupt, refTagError) {
@@ -496,7 +498,8 @@ TEST_F(mkey_test_sig_corrupt, refTagError) {
 	EXEC(execute_rdma());
 	// this->src_mkey.layout->dump(0, 0, "SRC");
 	// this->dst_mkey.layout->dump(0, 0, "DST");
-	this->src_mkey.check(MLX5DV_MKEY_SIG_BLOCK_BAD_REFTAG);
+	this->src_mkey.check(MLX5DV_MKEY_SIG_BLOCK_BAD_REFTAG, 0x0fdebc9a, 0xf0debc9a,
+			     src_block_size + src_sig_size - 1);
 }
 
 //refTag is changed to a non-defualt value (e.g., f0debc9a)
@@ -543,7 +546,8 @@ TEST_F(mkey_test_crc_sig_corrupt, corruptData) {
 	EXEC(execute_rdma());
 	// this->src_mkey.layout->dump(0, 0, "SRC");
 	// this->dst_mkey.layout->dump(0, 0, "DST");
-	this->src_mkey.check(MLX5DV_MKEY_SIG_BLOCK_BAD_GUARD);
+	this->src_mkey.check(MLX5DV_MKEY_SIG_BLOCK_BAD_GUARD, 0x699ACA21, 0xE33CB35A,
+			     src_block_size + src_sig_size - 1);
 }
 
 TEST_F(mkey_test_crc_sig_corrupt, corruptSig) {
@@ -554,6 +558,7 @@ TEST_F(mkey_test_crc_sig_corrupt, corruptSig) {
 	EXEC(execute_rdma());
 	// this->src_mkey.layout->dump(0, 0, "SRC");
 	// this->dst_mkey.layout->dump(0, 0, "DST");
-	this->src_mkey.check(MLX5DV_MKEY_SIG_BLOCK_BAD_GUARD);
+	this->src_mkey.check(MLX5DV_MKEY_SIG_BLOCK_BAD_GUARD, 0x969ACA21, 0x699ACA21,
+			     src_block_size + src_sig_size - 1);
 }
 
