@@ -523,3 +523,37 @@ TEST_F(mkey_test_sig_incorrect_ref_tag, refTagError) {
 	// this->dst_mkey.layout->dump(0, 0, "DST");
 	this->src_mkey.check(MLX5DV_MKEY_SIG_BLOCK_BAD_REFTAG);
 }
+
+typedef _mkey_test_sig_block<
+    mkey_sig_block<
+	mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
+	mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512> >,
+    0x699ACA21,
+    mkey_sig_block<
+	mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
+	mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512> >,
+    0x699ACA21, 1, ibvt_qp_dv<>,
+    rdma_op_write<ibvt_qp_dv<> > > mkey_test_crc_sig_corrupt;
+
+TEST_F(mkey_test_crc_sig_corrupt, corruptData) {
+
+	EXEC(fill_data());
+	EXEC(corrupt_data(0));
+	EXEC(configure_mkeys());
+	EXEC(execute_rdma());
+	// this->src_mkey.layout->dump(0, 0, "SRC");
+	// this->dst_mkey.layout->dump(0, 0, "DST");
+	this->src_mkey.check(MLX5DV_MKEY_SIG_BLOCK_BAD_GUARD);
+}
+
+TEST_F(mkey_test_crc_sig_corrupt, corruptSig) {
+
+	EXEC(fill_data());
+	EXEC(corrupt_data(512));
+	EXEC(configure_mkeys());
+	EXEC(execute_rdma());
+	// this->src_mkey.layout->dump(0, 0, "SRC");
+	// this->dst_mkey.layout->dump(0, 0, "DST");
+	this->src_mkey.check(MLX5DV_MKEY_SIG_BLOCK_BAD_GUARD);
+}
+
