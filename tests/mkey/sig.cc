@@ -259,12 +259,12 @@ typedef testing::Types<
 	types<mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
 			     mkey_sig_block_domain_none>, 0x699ACA21,
 	      mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32c, mkey_sig_block_size_512>,
-			     mkey_sig_block_domain_none>, 0x7BE5157D>,
+			     mkey_sig_block_domain_none>, 0x4207E6B4>,
 	// @todo: check crc64 signature
 	types<mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
 			     mkey_sig_block_domain_none>, 0x699ACA21,
 	      mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc64xp10, mkey_sig_block_size_512>,
-			     mkey_sig_block_domain_none>, 0xB23C348A1F86783F>
+			     mkey_sig_block_domain_none>, 0x8C8ADB450CCE85AA>
 	> mkey_test_list_sig_types;
 INSTANTIATE_TYPED_TEST_CASE_P(sig_types, mkey_test_sig_block, mkey_test_list_sig_types);
 
