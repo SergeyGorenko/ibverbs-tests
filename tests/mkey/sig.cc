@@ -134,7 +134,7 @@ struct _mkey_test_sig_block : public mkey_test_base<Qp> {
 			ASSERT_EQ(0, memcmp(buf, ref_block_buf, dst_block_size));
 			buf += dst_block_size;
 
-			SrcSigBlock::MkeyDomainType::SigType::sig_to_buf(value, ref_sig_buf, i);
+			DstSigBlock::MkeyDomainType::SigType::sig_to_buf(value, ref_sig_buf, i);
 
 			ASSERT_EQ(0, memcmp(buf, ref_sig_buf, dst_sig_size));
 			buf += dst_sig_size;
