@@ -134,7 +134,7 @@ struct _mkey_test_sig_block : public mkey_test_base<Qp> {
 			ASSERT_EQ(0, memcmp(buf, ref_block_buf, dst_block_size));
 			buf += dst_block_size;
 
-			SrcSigBlock::MkeyDomainType::SigType::sig_to_buf(value, ref_sig_buf, i);
+			DstSigBlock::MkeyDomainType::SigType::sig_to_buf(value, ref_sig_buf, i);
 
 			ASSERT_EQ(0, memcmp(buf, ref_sig_buf, dst_sig_size));
 			buf += dst_sig_size;
@@ -259,12 +259,12 @@ typedef testing::Types<
 	types<mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
 			     mkey_sig_block_domain_none>, 0x699ACA21,
 	      mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32c, mkey_sig_block_size_512>,
-			     mkey_sig_block_domain_none>, 0x7BE5157D>,
+			     mkey_sig_block_domain_none>, 0x4207E6B4>,
 	// @todo: check crc64 signature
 	types<mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
 			     mkey_sig_block_domain_none>, 0x699ACA21,
 	      mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc64xp10, mkey_sig_block_size_512>,
-			     mkey_sig_block_domain_none>, 0xB23C348A1F86783F>
+			     mkey_sig_block_domain_none>, 0x8C8ADB450CCE85AA>
 	> mkey_test_list_sig_types;
 INSTANTIATE_TYPED_TEST_CASE_P(sig_types, mkey_test_sig_block, mkey_test_list_sig_types);
 
@@ -474,7 +474,8 @@ TEST_F(mkey_test_sig_corrupt, guardError) {
 	EXEC(execute_rdma());
 	// this->src_mkey.layout->dump(0, 0, "SRC");
 	// this->dst_mkey.layout->dump(0, 0, "DST");
-	this->src_mkey.check(MLX5DV_MKEY_SIG_BLOCK_BAD_GUARD);
+	this->src_mkey.check(MLX5DV_MKEY_SIG_BLOCK_BAD_GUARD, 0x9ec6, 0xebad,
+			     src_block_size + src_sig_size - 1);
 }
 
 TEST_F(mkey_test_sig_corrupt, appTagError) {
@@ -485,7 +486,8 @@ TEST_F(mkey_test_sig_corrupt, appTagError) {
 	EXEC(execute_rdma());
 	// this->src_mkey.layout->dump(0, 0, "SRC");
 	// this->dst_mkey.layout->dump(0, 0, "DST");
-	this->src_mkey.check(MLX5DV_MKEY_SIG_BLOCK_BAD_APPTAG);
+	this->src_mkey.check(MLX5DV_MKEY_SIG_BLOCK_BAD_APPTAG, 0xa978, 0x5678,
+			     src_block_size + src_sig_size - 1);
 }
 
 TEST_F(mkey_test_sig_corrupt, refTagError) {
@@ -496,7 +498,8 @@ TEST_F(mkey_test_sig_corrupt, refTagError) {
 	EXEC(execute_rdma());
 	// this->src_mkey.layout->dump(0, 0, "SRC");
 	// this->dst_mkey.layout->dump(0, 0, "DST");
-	this->src_mkey.check(MLX5DV_MKEY_SIG_BLOCK_BAD_REFTAG);
+	this->src_mkey.check(MLX5DV_MKEY_SIG_BLOCK_BAD_REFTAG, 0x0fdebc9a, 0xf0debc9a,
+			     src_block_size + src_sig_size - 1);
 }
 
 //refTag is changed to a non-defualt value (e.g., f0debc9a)
@@ -543,7 +546,8 @@ TEST_F(mkey_test_crc_sig_corrupt, corruptData) {
 	EXEC(execute_rdma());
 	// this->src_mkey.layout->dump(0, 0, "SRC");
 	// this->dst_mkey.layout->dump(0, 0, "DST");
-	this->src_mkey.check(MLX5DV_MKEY_SIG_BLOCK_BAD_GUARD);
+	this->src_mkey.check(MLX5DV_MKEY_SIG_BLOCK_BAD_GUARD, 0x699ACA21, 0xE33CB35A,
+			     src_block_size + src_sig_size - 1);
 }
 
 TEST_F(mkey_test_crc_sig_corrupt, corruptSig) {
@@ -554,6 +558,7 @@ TEST_F(mkey_test_crc_sig_corrupt, corruptSig) {
 	EXEC(execute_rdma());
 	// this->src_mkey.layout->dump(0, 0, "SRC");
 	// this->dst_mkey.layout->dump(0, 0, "DST");
-	this->src_mkey.check(MLX5DV_MKEY_SIG_BLOCK_BAD_GUARD);
+	this->src_mkey.check(MLX5DV_MKEY_SIG_BLOCK_BAD_GUARD, 0x969ACA21, 0x699ACA21,
+			     src_block_size + src_sig_size - 1);
 }
 

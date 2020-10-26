@@ -164,6 +164,8 @@ struct mkey : public ibvt_abstract_mr {
 
 	virtual void check() = 0;
 	virtual void check(int err_type) = 0;
+	virtual void check(int err_type, uint64_t actual, uint64_t expected,
+			   uint64_t offset) = 0;
 };
 
 struct mkey_dv : public mkey {
@@ -211,6 +213,17 @@ struct mkey_dv : public mkey {
 		struct mlx5dv_mkey_err err;
 		DO(mlx5dv_mkey_check(mlx5_mkey, &err));
 		ASSERT_EQ(err_type, err.err_type);
+	}
+
+	virtual void check(int err_type, uint64_t actual, uint64_t expected,
+			   uint64_t offset) override {
+		struct mlx5dv_mkey_err err;
+		struct mlx5dv_sig_err &sig_err = err.err.sig;
+		DO(mlx5dv_mkey_check(mlx5_mkey, &err));
+		ASSERT_EQ(err_type, err.err_type);
+		ASSERT_EQ(actual, sig_err.actual_value);
+		ASSERT_EQ(expected, sig_err.expected_value);
+		ASSERT_EQ(offset, sig_err.offset);
 	}
 };
 
