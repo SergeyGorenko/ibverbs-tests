@@ -160,29 +160,7 @@ TYPED_TEST_P(mkey_test_basic, non_signaled) {
 	EXEC(check_data());
 }
 
-TYPED_TEST_P(mkey_test_basic, non_inline) {
-	CHK_SUT(dv_sig);
-	// @todo: remove skip when inline is implemented
-	SKIP(1);
-
-	auto &src_side = this->src_side;
-	auto &dst_side = this->dst_side;
-
-	EXEC(fill_data());
-	dst_side.qp.wr_flags(IBV_SEND_SIGNALED);
-	EXEC(dst_mkey.configure(dst_side.qp));
-	EXEC(dst_side.cq.poll());
-
-	src_side.qp.wr_flags(IBV_SEND_SIGNALED);
-	EXEC(src_mkey.configure(src_side.qp));
-	EXEC(src_side.cq.poll());
-
-	EXEC(execute_rdma());
-	EXEC(check_mkeys());
-	EXEC(check_data());
-}
-
-REGISTER_TYPED_TEST_CASE_P(mkey_test_basic, basic, non_signaled, non_inline);
+REGISTER_TYPED_TEST_CASE_P(mkey_test_basic, basic, non_signaled);
 
 template<typename ...Setters>
 using mkey_dv_new_basic = mkey_dv_new<mkey_access_flags<>, Setters...>;
