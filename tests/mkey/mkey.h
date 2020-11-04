@@ -507,8 +507,7 @@ struct mkey_sig_t10dif_type1 : public mkey_sig {
 		dif.app_tag = AppTag;
 		dif.ref_tag = RefTag;
 		dif.flags = MLX5DV_SIG_T10DIF_FLAG_REF_REMAP |
-			    MLX5DV_SIG_T10DIF_FLAG_APP_ESCAPE |
-			    MLX5DV_SIG_T10DIF_FLAG_REF_ESCAPE;
+			    MLX5DV_SIG_T10DIF_FLAG_APP_ESCAPE;
 		domain.sig.dif = &dif;
 	}
 
