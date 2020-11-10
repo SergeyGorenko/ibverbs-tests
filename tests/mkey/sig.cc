@@ -316,11 +316,16 @@ typedef testing::Types<
 INSTANTIATE_TYPED_TEST_CASE_P(ops, mkey_test_sig_block, mkey_test_list_ops);
 
 template<typename T>
-using mkey_test_sig_block_fence = _mkey_test_sig_block<typename T::SrcSigBlock, T::SrcValue,
-						 typename T::DstSigBlock, T::DstValue,
-						 T::NumBlocks,
-						 typename T::Qp,
-						 typename T::RdmaOp>;
+using mkey_test_sig_block_fence = _mkey_test_sig_block<
+	mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
+		       mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>,
+	0x699ACA21,
+	mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
+		       mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>,
+	0x699ACA21,
+	1,
+	ibvt_qp_dv<>,
+	typename T::RdmaOp>;
 
 TYPED_TEST_CASE_P(mkey_test_sig_block_fence);
 
@@ -344,18 +349,13 @@ TYPED_TEST_P(mkey_test_sig_block_fence, basic) {
 }
 
 REGISTER_TYPED_TEST_CASE_P(mkey_test_sig_block_fence, basic);
+template<template<typename> typename T_RdmaOp>
+struct sig_fence_test_types {
+	typedef T_RdmaOp<ibvt_qp_dv<>> RdmaOp;
+};
 typedef testing::Types<
-	types<mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
-			     mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>, 0x699ACA21,
-	      mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
-			     mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>, 0x699ACA21,
-	      1, ibvt_qp_dv<>, rdma_op_write>,
-	types<mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
-			     mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>, 0x699ACA21,
-	      mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
-			     mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>, 0x699ACA21,
-	      1, ibvt_qp_dv<>, rdma_op_send>
-
+	sig_fence_test_types<rdma_op_write>,
+	sig_fence_test_types<rdma_op_send>
 	> mkey_test_fence_ops;
 INSTANTIATE_TYPED_TEST_CASE_P(fence_ops, mkey_test_sig_block_fence, mkey_test_fence_ops);
 
