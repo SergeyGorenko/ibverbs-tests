@@ -315,6 +315,49 @@ typedef testing::Types<
 	> mkey_test_list_ops;
 INSTANTIATE_TYPED_TEST_CASE_P(ops, mkey_test_sig_block, mkey_test_list_ops);
 
+template<typename T>
+using mkey_test_sig_block_fence = _mkey_test_sig_block<typename T::SrcSigBlock, T::SrcValue,
+						 typename T::DstSigBlock, T::DstValue,
+						 T::NumBlocks,
+						 typename T::Qp,
+						 typename T::RdmaOp>;
+
+TYPED_TEST_CASE_P(mkey_test_sig_block_fence);
+
+TYPED_TEST_P(mkey_test_sig_block_fence, basic) {
+	SIG_CHK_SUT();
+
+	EXEC(fill_data());
+
+	this->dst_side.qp.wr_flags(IBV_SEND_INLINE);
+	EXECL(this->dst_mkey.configure(this->dst_side.qp));
+
+	this->src_side.qp.wr_flags(IBV_SEND_INLINE);
+	EXEC(src_side.qp.wr_start());
+	EXECL(this->src_mkey.wr_configure(this->src_side.qp));
+
+	EXECL(this->rdma_op.wr_submit(this->src_side, this->src_mkey.sge(), this->dst_side, this->dst_mkey.sge()));
+
+	EXECL(this->src_side.qp.wr_complete());
+
+	EXECL(this->rdma_op.complete(this->src_side, this->dst_side, IBV_WC_SUCCESS, IBV_WC_SUCCESS));
+}
+
+REGISTER_TYPED_TEST_CASE_P(mkey_test_sig_block_fence, basic);
+typedef testing::Types<
+	types<mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
+			     mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>, 0x699ACA21,
+	      mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
+			     mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>, 0x699ACA21,
+	      1, ibvt_qp_dv<>, rdma_op_write>,
+	types<mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
+			     mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>, 0x699ACA21,
+	      mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
+			     mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>, 0x699ACA21,
+	      1, ibvt_qp_dv<>, rdma_op_send>
+
+	> mkey_test_fence_ops;
+INSTANTIATE_TYPED_TEST_CASE_P(fence_ops, mkey_test_sig_block_fence, mkey_test_fence_ops);
 
 typedef mkey_test_base<ibvt_qp_dv<>> mkey_test_sig_custom;
 
