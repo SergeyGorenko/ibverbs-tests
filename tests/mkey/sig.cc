@@ -316,11 +316,16 @@ typedef testing::Types<
 INSTANTIATE_TYPED_TEST_CASE_P(ops, mkey_test_sig_block, mkey_test_list_ops);
 
 template<typename T>
-using mkey_test_sig_block_fence = _mkey_test_sig_block<typename T::SrcSigBlock, T::SrcValue,
-						 typename T::DstSigBlock, T::DstValue,
-						 T::NumBlocks,
-						 typename T::Qp,
-						 typename T::RdmaOp>;
+using mkey_test_sig_block_fence = _mkey_test_sig_block<
+	mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
+		       mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>,
+	0x699ACA21,
+	mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
+		       mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>,
+	0x699ACA21,
+	1,
+	ibvt_qp_dv<>,
+	typename T::RdmaOp>;
 
 TYPED_TEST_CASE_P(mkey_test_sig_block_fence);
 
@@ -344,18 +349,13 @@ TYPED_TEST_P(mkey_test_sig_block_fence, basic) {
 }
 
 REGISTER_TYPED_TEST_CASE_P(mkey_test_sig_block_fence, basic);
+template<template<typename> typename T_RdmaOp>
+struct sig_fence_test_types {
+	typedef T_RdmaOp<ibvt_qp_dv<>> RdmaOp;
+};
 typedef testing::Types<
-	types<mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
-			     mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>, 0x699ACA21,
-	      mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
-			     mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>, 0x699ACA21,
-	      1, ibvt_qp_dv<>, rdma_op_write>,
-	types<mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
-			     mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>, 0x699ACA21,
-	      mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
-			     mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>, 0x699ACA21,
-	      1, ibvt_qp_dv<>, rdma_op_send>
-
+	sig_fence_test_types<rdma_op_write>,
+	sig_fence_test_types<rdma_op_send>
 	> mkey_test_fence_ops;
 INSTANTIATE_TYPED_TEST_CASE_P(fence_ops, mkey_test_sig_block_fence, mkey_test_fence_ops);
 
@@ -447,7 +447,6 @@ TEST_F(mkey_test_sig_max_inline_data, maxInlineDataTooSmall) {
 	EXEC(src_side.qp.wr_complete(ENOMEM));
 }
 
-// refTag is changed from 0x0000000f to 0x00000000
 typedef _mkey_test_sig_block<
     mkey_sig_block<
 	mkey_sig_block_domain<mkey_sig_t10dif_type1<mkey_sig_t10dif_crc, 0xffff,
@@ -455,7 +454,10 @@ typedef _mkey_test_sig_block<
 			      mkey_sig_block_size_512>,
 	mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default,
 			      mkey_sig_block_size_512> >,
-    0x9ec6ffff00000000,
+    // guard = 0x0000 is an incorerrect value, CRC16(data) is expected
+    // app_tag = 0xffff is a magic number to checking of guard and ref_tag
+    // ref_tag = 0x00000000 is an incorrect values, 0x0x0000000f is expected
+    0x0000ffff00000000,
     mkey_sig_block<mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default,
 					 mkey_sig_block_size_512>,
 		   mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default,
@@ -473,7 +475,6 @@ TEST_F(mkey_test_t10dif_type1, skipCheckRefTag) {
 	this->src_mkey.check(MLX5DV_MKEY_NO_ERR);
 }
 
-// refTag is changed from 0x0000000f to 0x00000000
 typedef _mkey_test_sig_block<
     mkey_sig_block<
 	mkey_sig_block_domain<mkey_sig_t10dif_type3<mkey_sig_t10dif_crc, 0xffff,
@@ -481,7 +482,10 @@ typedef _mkey_test_sig_block<
 			      mkey_sig_block_size_512>,
 	mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default,
 			      mkey_sig_block_size_512> >,
-    0x9ec6ffff00000000,
+    // guard = 0x0000 is an incorerrect value, CRC16(data) is expected
+    // app_tag = 0xffff and ref_tag = 0xffffffff are magic numbes to skip
+    //      cheking of guard
+    0x0000ffffffffffff,
     mkey_sig_block<mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default,
 					 mkey_sig_block_size_512>,
 		   mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default,
