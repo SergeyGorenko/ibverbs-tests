@@ -211,8 +211,6 @@ TYPED_TEST_P(mkey_test_sig_block, basic) {
 REGISTER_TYPED_TEST_CASE_P(mkey_test_sig_block, basic);
 
 typedef testing::Types<
-	types<mkey_sig_block_none, 0,
-	      mkey_sig_block_none, 0>,
 
 	// Wire domain
 	types<mkey_sig_block<mkey_sig_block_domain_none,

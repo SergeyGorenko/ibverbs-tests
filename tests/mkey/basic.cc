@@ -42,6 +42,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <vector>
+#include <typeinfo>
 
 #include "env.h"
 #include "mkey.h"
@@ -147,13 +148,26 @@ TYPED_TEST_P(mkey_test_basic, non_signaled) {
 	CHK_SUT(dv_sig);
 	auto &src_side = this->src_side;
 	auto &dst_side = this->dst_side;
+	int wr_flags;
+        bool is_rdma_read = typeid(this->rdma_op) ==
+                            typeid(rdma_op_read<typename TypeParam::Qp>);
 
-	EXEC(fill_data());
-	dst_side.qp.wr_flags(IBV_SEND_INLINE);
+        EXEC(fill_data());
+	wr_flags = IBV_SEND_INLINE;
+	if (!is_rdma_read)
+		wr_flags |= IBV_SEND_SIGNALED;
+	dst_side.qp.wr_flags(wr_flags);
 	EXEC(dst_mkey.configure(dst_side.qp));
+	if (!is_rdma_read)
+		EXEC(dst_side.cq.poll());
 
-	src_side.qp.wr_flags(IBV_SEND_INLINE);
+	wr_flags = IBV_SEND_INLINE;
+	if (is_rdma_read)
+		wr_flags |= IBV_SEND_SIGNALED;
+	src_side.qp.wr_flags(wr_flags);
 	EXEC(src_mkey.configure(src_side.qp));
+	if (is_rdma_read)
+		EXEC(src_side.cq.poll());
 
 	EXEC(execute_rdma());
 	EXEC(check_mkeys());
