@@ -268,6 +268,39 @@ INSTANTIATE_TYPED_TEST_CASE_P(sig_types, mkey_test_sig_block, mkey_test_list_sig
 
 typedef testing::Types<
 	types<mkey_sig_block<mkey_sig_block_domain_none,
+			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>, 0,
+	      mkey_sig_block<mkey_sig_block_domain_none,
+			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>, 0,
+	      1, ibvt_qp_dv<>, rdma_op_read>,
+	types<mkey_sig_block<mkey_sig_block_domain_none,
+			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>, 0,
+	      mkey_sig_block<mkey_sig_block_domain_none,
+			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>, 0,
+	      1, ibvt_qp_dv<>, rdma_op_write>,
+
+	types<mkey_sig_block<mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>,
+			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>, 0x9ec65678f0debc9a,
+	      mkey_sig_block<mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>,
+			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>, 0x9ec65678f0debc9a,
+	      1, ibvt_qp_dv<>, rdma_op_read>,
+	types<mkey_sig_block<mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>,
+			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>, 0x9ec65678f0debc9a,
+	      mkey_sig_block<mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>,
+			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>, 0x9ec65678f0debc9a,
+	      1, ibvt_qp_dv<>, rdma_op_write>,
+
+	types<mkey_sig_block<mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>,
+			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>, 0x9ec65678f0debc9a,
+	      mkey_sig_block<mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>,
+			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>, 0x9ec65678f0debc9a,
+	      2, ibvt_qp_dv<>, rdma_op_read>,
+	types<mkey_sig_block<mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>,
+			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>, 0x9ec65678f0debc9a,
+	      mkey_sig_block<mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>,
+			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>, 0x9ec65678f0debc9a,
+	      2, ibvt_qp_dv<>, rdma_op_write>,
+
+	types<mkey_sig_block<mkey_sig_block_domain_none,
 			     mkey_sig_block_domain<mkey_sig_t10dif_csum_type1_default, mkey_sig_block_size_512>>, 0,
 	      mkey_sig_block<mkey_sig_block_domain_none,
 			     mkey_sig_block_domain<mkey_sig_t10dif_csum_type1_default, mkey_sig_block_size_512>>, 0,
@@ -503,6 +536,96 @@ typedef _mkey_test_sig_block<
     mkey_sig_block<mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default,
 					 mkey_sig_block_size_512>,
 		   mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default,
+					 mkey_sig_block_size_512>, 
+		   MLX5DV_SIG_CHECK_T10DIF_APPTAG_BYTE0>,
+    0x9ec65678f0debc9a,
+    mkey_sig_block<mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default,
+					 mkey_sig_block_size_512>,
+		   mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default,
+					 mkey_sig_block_size_512>,0>,
+    0x9ec6A978f0debc9a, 1, ibvt_qp_dv<>,
+    rdma_op_write<ibvt_qp_dv<> > > mkey_test_app_tag_byte0_rdma_write;
+
+TEST_F(mkey_test_app_tag_byte0_rdma_write, corruptByte1) {
+
+	EXEC(fill_data());
+	// Byte1 of App Tag is corrupted
+	EXEC(corrupt_data(512+2));
+	EXEC(configure_mkeys());
+	EXEC(execute_rdma());
+	// Mask MLX5DV_SIG_CHECK_T10DIF_APPTAG_BYTE0 only checks error
+	// in byte 0, so no error will be detected for byte1 corruption
+	this->src_mkey.check(MLX5DV_MKEY_NO_ERR);
+	this->dst_mkey.check(MLX5DV_MKEY_NO_ERR);
+	// APP Tag 0x5678 is corrupted to 0xA978, which is copied to
+	// the destination, so check_data detects this corruption 
+	EXEC(check_data());
+}
+
+TEST_F(mkey_test_app_tag_byte0_rdma_write, corruptByte0) {
+
+	EXEC(fill_data());
+	// Byte0 of App Tag is corrupted
+	EXEC(corrupt_data(512+3));
+	EXEC(configure_mkeys());
+	EXEC(execute_rdma());
+	// The src side detects the corruption of APP TAG in byte0
+	this->src_mkey.check(MLX5DV_MKEY_SIG_BLOCK_BAD_APPTAG, 0x5687, 0x5678,
+			     src_block_size + src_sig_size - 1);
+	// For RDMA write, the destination cannot know the error because
+	// no CQ or other events are notified
+	this->dst_mkey.check(MLX5DV_MKEY_NO_ERR);
+}
+
+typedef _mkey_test_sig_block<
+    mkey_sig_block<mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default,
+					 mkey_sig_block_size_512>,
+		   mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default,
+					 mkey_sig_block_size_512>, 0>,
+    0x9ec65678f0debc9a,
+    mkey_sig_block<mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default,
+					 mkey_sig_block_size_512>,
+		   mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default,
+					 mkey_sig_block_size_512>,
+		   MLX5DV_SIG_CHECK_T10DIF_APPTAG_BYTE0>,
+    0x9ec6A978f0debc9a, 1, ibvt_qp_dv<>,
+    rdma_op_read<ibvt_qp_dv<> > > mkey_test_app_tag_byte0_rdma_read;
+
+TEST_F(mkey_test_app_tag_byte0_rdma_read, corruptByte1) {
+
+	EXEC(fill_data());
+	// Byte1 of App Tag is corrupted
+	EXEC(corrupt_data(512+2));
+	EXEC(configure_mkeys());
+	EXEC(execute_rdma());
+	// Mask MLX5DV_SIG_CHECK_T10DIF_APPTAG_BYTE0 only checks error
+	// in byte 0, so no error will be found for byte1 corruption
+	this->src_mkey.check(MLX5DV_MKEY_NO_ERR);
+	this->dst_mkey.check(MLX5DV_MKEY_NO_ERR);
+	// APP Tag 0x5678 is corrupted to 0xA978, which is copied to
+	// the destination, so check_data can detect the corruption 
+	EXEC(check_data());
+}
+
+TEST_F(mkey_test_app_tag_byte0_rdma_read, corruptByte0) {
+
+	EXEC(fill_data());
+	// Byte0 of App Tag is corrupted
+	EXEC(corrupt_data(512+3));
+	EXEC(configure_mkeys());
+	EXEC(execute_rdma());
+	// For RDMA read, the src cannot detect the error because
+	// no CQ or other events are notified
+	this->src_mkey.check(MLX5DV_MKEY_NO_ERR);
+	// The dst side detects the corruption of APP TAG in byte0
+	this->dst_mkey.check(MLX5DV_MKEY_SIG_BLOCK_BAD_APPTAG, 0x5687, 0x5678,
+			     src_block_size + src_sig_size - 1);
+}
+
+typedef _mkey_test_sig_block<
+    mkey_sig_block<mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default,
+					 mkey_sig_block_size_512>,
+		   mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default,
 					 mkey_sig_block_size_512> >,
     0x9ec65678f0debc9a,
     mkey_sig_block<mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default,
@@ -606,4 +729,3 @@ TEST_F(mkey_test_crc_sig_corrupt, corruptSig) {
 	this->src_mkey.check(MLX5DV_MKEY_SIG_BLOCK_BAD_GUARD, 0x969ACA21, 0x699ACA21,
 			     src_block_size + src_sig_size - 1);
 }
-

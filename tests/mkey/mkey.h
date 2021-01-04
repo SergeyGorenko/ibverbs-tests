@@ -646,6 +646,9 @@ struct mkey_sig_block_domain {
 	}
 };
 
+#define MLX5DV_SIG_CHECK_T10DIF_APPTAG_BYTE1 0x20
+#define MLX5DV_SIG_CHECK_T10DIF_APPTAG_BYTE0 0x10
+
 template<typename MkeyDomain, typename WireDomain, uint8_t CheckMask = 0xFF>
 struct mkey_sig_block : public mkey_setter {
 	typedef MkeyDomain MkeyDomainType;
