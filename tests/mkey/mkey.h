@@ -789,6 +789,12 @@ struct mkey_test_side : public ibvt_obj {
 	virtual void connect(struct mkey_test_side &remote) {
 		qp.connect(&remote.qp);
 	}
+
+	void trigger_poll() {
+		struct ibv_cq_ex *cq_ex = (struct ibv_cq_ex*)(cq.cq);
+		struct ibv_poll_cq_attr attr = {};
+		ibv_start_poll(cq_ex, &attr);
+	}
 };
 
 template<typename QP>

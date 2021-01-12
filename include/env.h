@@ -738,11 +738,6 @@ struct ibvt_cq : public ibvt_obj {
 		wc.wc.qp_num = ibv_wc_read_qp_num(cq2());
 
 	}
-
-	virtual void trigger_poll() {
-		struct ibv_poll_cq_attr attr = {};
-		ibv_start_poll(cq2(), &attr);
-	}
 #endif
 	virtual void poll_arrive(int n) {
 		struct ibv_wc wc[n];
