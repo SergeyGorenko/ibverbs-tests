@@ -563,8 +563,15 @@ TEST_F(mkey_test_different_app_tag_byte0_rdma_write, corruptByte1) {
 	// Mask MLX5DV_SIG_CHECK_T10DIF_APPTAG_BYTE0 only checks error
 	// in byte 0, so no error will be detected for byte1 corruption
 	this->src_mkey.check(MLX5DV_MKEY_NO_ERR);
-	// trigger poll on the dst to check sig error
-	EXEC(dst_side.trigger_poll());
+}
+
+TEST_F(mkey_test_different_app_tag_byte0_rdma_write, corruptByte1ReGenSig) {
+
+	EXEC(fill_data());
+	// Byte1 of App Tag is corrupted
+	EXEC(corrupt_data(512 + 2));
+	EXEC(configure_mkeys());
+	EXEC(execute_rdma());
 	// because APP Tag setting is different between src and dst,
 	// APP Tag is regenerated on the dst, and no error on the dst
 	this->dst_mkey.check(MLX5DV_MKEY_NO_ERR);
@@ -586,126 +593,24 @@ TEST_F(mkey_test_different_app_tag_byte0_rdma_write, corruptByte0) {
 	// The src side detects the corruption of APP TAG in byte0
 	this->src_mkey.check(MLX5DV_MKEY_SIG_BLOCK_BAD_APPTAG, 0x5687, 0x5678,
 			     src_block_size + src_sig_size - 1);
-	// trigger poll on the dst to check sig error
-	EXEC(dst_side.trigger_poll());
+}
+
+TEST_F(mkey_test_different_app_tag_byte0_rdma_write, corruptByte0ReGenSig) {
+
+	EXEC(fill_data());
+	// Byte1 of App Tag is corrupted
+	EXEC(corrupt_data(512 + 3));
+	EXEC(configure_mkeys());
+	EXEC(execute_rdma());
 	// because APP Tag setting is different between src and dst,
 	// APP Tag is regenerated on the dst, and no error on the dst
 	this->dst_mkey.check(MLX5DV_MKEY_NO_ERR);
-}
-
-typedef _mkey_test_sig_block<
-    mkey_sig_block<
-	mkey_sig_block_domain<mkey_sig_t10dif_type1<mkey_sig_t10dif_crc, 0xffff,
-						    0x5678, 0xf0debc9a>,
-			      mkey_sig_block_size_512>,
-	mkey_sig_block_domain<mkey_sig_t10dif_type1<mkey_sig_t10dif_crc, 0xffff,
-						    0x1234, 0xf0debc9a>,
-			      mkey_sig_block_size_512>,
-	MLX5DV_SIG_CHECK_T10DIF_APPTAG_BYTE0>,
-    0xec7d5678f0debc9a,
-    mkey_sig_block<
-	mkey_sig_block_domain<mkey_sig_t10dif_type1<mkey_sig_t10dif_crc, 0xffff,
-						    0x5678, 0xf0debc9a>,
-			      mkey_sig_block_size_512>,
-	mkey_sig_block_domain<mkey_sig_t10dif_type1<mkey_sig_t10dif_crc, 0xffff,
-						    0x1234, 0xf0debc9a>,
-			      mkey_sig_block_size_512> >,
-    // APP Tag 0x5678 is regenerated
-    0xec7d5678f0debc9a, 1, ibvt_qp_dv<>,
-    rdma_op_read<ibvt_qp_dv<> > > mkey_test_different_app_tag_byte0_rdma_read;
-
-TEST_F(mkey_test_different_app_tag_byte0_rdma_read, corruptByte1) {
-
-	EXEC(fill_data());
-	// Byte1 of App Tag is corrupted
-	EXEC(corrupt_data(512 + 2));
-	EXEC(configure_mkeys());
-	EXEC(execute_rdma());
-	// trigger poll on the src to check sig error
-	EXEC(src_side.trigger_poll());
-	// Mask MLX5DV_SIG_CHECK_T10DIF_APPTAG_BYTE0 only checks error
-	// in byte 0, so no error will be detected for byte1 corruption
-	this->src_mkey.check(MLX5DV_MKEY_NO_ERR);
-
-	// APP Tag 0x5678 is corrupted to 0xA978 in the src side, which is
-	// regenerated in the destination because APP Tag will be regenerated
-	// if APP Tag is different in memory domain and wire domain
-	this->dst_mkey.check(MLX5DV_MKEY_NO_ERR);
-	EXEC(check_data());
-}
-
-TEST_F(mkey_test_different_app_tag_byte0_rdma_read, corruptByte0) {
-
-	EXEC(fill_data());
-	// Byte0 of App Tag is corrupted
-	EXEC(corrupt_data(512 + 3));
-	EXEC(configure_mkeys());
-	EXEC(execute_rdma());
-	// trigger poll on the src to check sig error
-	EXEC(src_side.trigger_poll());
-	this->src_mkey.check(MLX5DV_MKEY_SIG_BLOCK_BAD_APPTAG, 0x5687, 0x5678,
-			     src_block_size + src_sig_size - 1);
-
-	// APP Tag 0x5678 is corrupted to 0xA978 in the src side, which is
-	// regenerated in the destination because APP Tag will be regenerated
-	// if APP Tag is different in memory domain and wire domain
-	this->dst_mkey.check(MLX5DV_MKEY_NO_ERR);
-	EXEC(check_data());
-}
-
-typedef _mkey_test_sig_block<
-    mkey_sig_block<mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default,
-					 mkey_sig_block_size_512>,
-		   mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default,
-					 mkey_sig_block_size_512>,
-		   MLX5DV_SIG_CHECK_T10DIF_APPTAG_BYTE0>,
-    0xec7d5678f0debc9a,
-    mkey_sig_block<mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default,
-					 mkey_sig_block_size_512>,
-		   mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default,
-					 mkey_sig_block_size_512> >,
-    0xec7dA978f0debc9a, 1, ibvt_qp_dv<>,
-    rdma_op_write<ibvt_qp_dv<> > > mkey_test_same_app_tag_byte0_rdma_write;
-
-TEST_F(mkey_test_same_app_tag_byte0_rdma_write, corruptByte1) {
-
-	EXEC(fill_data());
-	// Byte1 of App Tag is corrupted
-	EXEC(corrupt_data(512 + 2));
-	EXEC(configure_mkeys());
-	EXEC(execute_rdma());
-	// Mask MLX5DV_SIG_CHECK_T10DIF_APPTAG_BYTE0 only checks error
-	// in byte 0, so no error will be detected for byte1 corruption
-	this->src_mkey.check(MLX5DV_MKEY_NO_ERR);
-	// trigger poll on the dst to check sig error
-	EXEC(dst_side.trigger_poll());
-	// the dst received corrupted data, so it detected the error
-	this->dst_mkey.check(MLX5DV_MKEY_SIG_BLOCK_BAD_APPTAG, 0xA978, 0x5678,
-			     src_block_size + src_sig_size - 1);
 	// this->src_mkey.layout->dump(0, 0, "SRC");
 	// this->dst_mkey.layout->dump(0, 0, "DST");
-	// APP Tag 0x5678 is corrupted to 0xA978, which is copied to
-	// the destination, so check_data detects this corruption
+	// APP Tag 0x5678 is corrupted to 0xA978, which is not copied to
+	// the destination because APP Tag is regenerated due to APP Tag
+	// is different in memory domain and wire domain
 	EXEC(check_data());
-}
-
-TEST_F(mkey_test_same_app_tag_byte0_rdma_write, corruptByte0) {
-
-	EXEC(fill_data());
-	// Byte0 of App Tag is corrupted
-	EXEC(corrupt_data(512 + 3));
-	EXEC(configure_mkeys());
-	EXEC(execute_rdma());
-	// The src side detects the corruption of APP TAG in byte0
-	this->src_mkey.check(MLX5DV_MKEY_SIG_BLOCK_BAD_APPTAG, 0x5687, 0x5678,
-			     src_block_size + src_sig_size - 1);
-	// trigger poll on the dst to check sig error
-	EXEC(dst_side.trigger_poll());
-	// the dst received corrupted data, so it detected the error
-	this->dst_mkey.check(MLX5DV_MKEY_SIG_BLOCK_BAD_APPTAG, 0x5687, 0x5678,
-			     src_block_size + src_sig_size - 1);
-	// this->src_mkey.layout->dump(0, 0, "SRC");
-	// this->dst_mkey.layout->dump(0, 0, "DST");
 }
 
 typedef _mkey_test_sig_block<
@@ -729,14 +634,21 @@ TEST_F(mkey_test_same_app_tag_byte0_rdma_read, corruptByte1) {
 	EXEC(corrupt_data(512 + 2));
 	EXEC(configure_mkeys());
 	EXEC(execute_rdma());
-	// trigger poll on the src to check sig error
-	EXEC(src_side.trigger_poll());
 	// Mask MLX5DV_SIG_CHECK_T10DIF_APPTAG_BYTE0 only checks error
 	// in byte 0, so no error will be found for byte1 corruption
 	this->src_mkey.check(MLX5DV_MKEY_NO_ERR);
+}
+
+TEST_F(mkey_test_same_app_tag_byte0_rdma_read, corruptByte1CopySig) {
+
+	EXEC(fill_data());
+	// Byte1 of App Tag is corrupted
+	EXEC(corrupt_data(512 + 2));
+	EXEC(configure_mkeys());
+	EXEC(execute_rdma());
 	// the dst received corrupted data, it detected the error
 	this->dst_mkey.check(MLX5DV_MKEY_SIG_BLOCK_BAD_APPTAG, 0xA978, 0x5678,
-			     src_block_size + src_sig_size - 1);
+			     dst_block_size + dst_sig_size - 1);
 	// APP Tag 0x5678 is corrupted to 0xA978, which is copied to
 	// the destination, so check_data can detect the corruption
 	EXEC(check_data());
@@ -749,14 +661,21 @@ TEST_F(mkey_test_same_app_tag_byte0_rdma_read, corruptByte0) {
 	EXEC(corrupt_data(512 + 3));
 	EXEC(configure_mkeys());
 	EXEC(execute_rdma());
-	// trigger poll on the src to check sig error
-	EXEC(src_side.trigger_poll());
 	// the src side corrupted data, sig error was detected
 	this->src_mkey.check(MLX5DV_MKEY_SIG_BLOCK_BAD_APPTAG, 0x5687, 0x5678,
 			     src_block_size + src_sig_size - 1);
+}
+
+TEST_F(mkey_test_same_app_tag_byte0_rdma_read, corruptByte0CopySig) {
+
+	EXEC(fill_data());
+	// Byte0 of App Tag is corrupted
+	EXEC(corrupt_data(512 + 3));
+	EXEC(configure_mkeys());
+	EXEC(execute_rdma());
 	// The dst side detects the corruption of APP TAG in byte0
 	this->dst_mkey.check(MLX5DV_MKEY_SIG_BLOCK_BAD_APPTAG, 0x5687, 0x5678,
-			     src_block_size + src_sig_size - 1);
+			     dst_block_size + dst_sig_size - 1);
 }
 
 typedef _mkey_test_sig_block<
