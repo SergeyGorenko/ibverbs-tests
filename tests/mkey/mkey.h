@@ -789,6 +789,13 @@ struct mkey_test_side : public ibvt_obj {
 	virtual void connect(struct mkey_test_side &remote) {
 		qp.connect(&remote.qp);
 	}
+
+	void trigger_poll() {
+		struct ibv_cq_ex *cq_ex = cq.cq2();
+		struct ibv_poll_cq_attr attr = {};
+
+		ASSERT_EQ(ENOENT, ibv_start_poll(cq_ex, &attr));
+	}
 };
 
 template<typename QP>
@@ -812,14 +819,6 @@ struct rdma_op {
 		ibvt_wc wc(side.cq);
 		side.cq.do_poll(wc);
 		ASSERT_EQ(status, wc().status);
-	}
-
-	// trigger poll for checking sig error
-	void trigger_poll(mkey_test_side<QP> &side) {
-		long result;
-		struct ibv_poll_cq_attr attr = {};
-		result = ibv_start_poll(side.cq.cq2(), &attr);
-		ASSERT_EQ(ENOENT, result);
 	}
 };
 
@@ -847,7 +846,7 @@ struct rdma_op_write : public rdma_op<QP> {
 			      enum ibv_wc_status src_status = IBV_WC_SUCCESS,
 			      enum ibv_wc_status dst_status = IBV_WC_SUCCESS) override {
 		this->check_completion(src_side, src_status);
-		this->trigger_poll(dst_side);
+		dst_side.trigger_poll();
 	}
 };
 
@@ -875,7 +874,7 @@ struct rdma_op_read : public rdma_op<QP> {
 			      enum ibv_wc_status src_status = IBV_WC_SUCCESS,
 			      enum ibv_wc_status dst_status = IBV_WC_SUCCESS) override {
 		this->check_completion(dst_side, dst_status);
-		this->trigger_poll(src_side);
+		src_side.trigger_poll();
 	}
 };
 
