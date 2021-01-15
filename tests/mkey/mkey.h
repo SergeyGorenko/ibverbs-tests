@@ -646,6 +646,9 @@ struct mkey_sig_block_domain {
 	}
 };
 
+#define MLX5DV_SIG_CHECK_T10DIF_APPTAG_BYTE1 0x20
+#define MLX5DV_SIG_CHECK_T10DIF_APPTAG_BYTE0 0x10
+
 template<typename MkeyDomain, typename WireDomain, uint8_t CheckMask = 0xFF>
 struct mkey_sig_block : public mkey_setter {
 	typedef MkeyDomain MkeyDomainType;
@@ -786,6 +789,13 @@ struct mkey_test_side : public ibvt_obj {
 	virtual void connect(struct mkey_test_side &remote) {
 		qp.connect(&remote.qp);
 	}
+
+	void trigger_poll() {
+		struct ibv_cq_ex *cq_ex = cq.cq2();
+		struct ibv_poll_cq_attr attr = {};
+
+		ASSERT_EQ(ENOENT, ibv_start_poll(cq_ex, &attr));
+	}
 };
 
 template<typename QP>
@@ -836,6 +846,7 @@ struct rdma_op_write : public rdma_op<QP> {
 			      enum ibv_wc_status src_status = IBV_WC_SUCCESS,
 			      enum ibv_wc_status dst_status = IBV_WC_SUCCESS) override {
 		this->check_completion(src_side, src_status);
+		dst_side.trigger_poll();
 	}
 };
 
@@ -863,6 +874,7 @@ struct rdma_op_read : public rdma_op<QP> {
 			      enum ibv_wc_status src_status = IBV_WC_SUCCESS,
 			      enum ibv_wc_status dst_status = IBV_WC_SUCCESS) override {
 		this->check_completion(dst_side, dst_status);
+		src_side.trigger_poll();
 	}
 };
 
