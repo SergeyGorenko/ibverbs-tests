@@ -45,6 +45,49 @@ typedef union {
 	struct dif dif;
 } dif_to_sig;
 
+template <uint16_t Guard, uint16_t AppTag, uint32_t RefTag,
+	  bool RefRemap = true>
+struct t10dif_sig {
+	static const uint16_t guard = Guard;
+	static const uint16_t app_tag = AppTag;
+	static const uint32_t ref_tag = RefTag;
+
+	static void sig_to_buf(uint8_t *buf, uint32_t block_index) {
+		dif_to_sig dif;
+
+		dif.dif.guard = htons(guard);
+		dif.dif.app_tag = htons(app_tag);
+
+		if (RefRemap) {
+			dif.dif.ref_tag = htonl(ref_tag + block_index);
+		} else {
+			dif.dif.ref_tag = htonl(ref_tag);
+		}
+
+		*(uint64_t *)buf = dif.sig;
+	}
+};
+
+struct sig_none {
+	static void sig_to_buf(uint8_t *buf, uint32_t block_index) {}
+};
+
+template <uint32_t Sig> struct crc32_sig {
+	static const uint32_t sig = Sig;
+
+	static void sig_to_buf(uint8_t *buf, uint32_t block_index) {
+		*(uint32_t *)buf = htonl(sig);
+	}
+};
+
+template <uint64_t Sig> struct crc64_sig {
+	static const uint64_t sig = Sig;
+
+	static void sig_to_buf(uint8_t *buf, uint32_t block_index) {
+		*(uint64_t *)buf = htobe64(sig);
+	}
+};
+
 template<uint32_t MaxSendWr = 128, uint32_t MaxSendSge = 16,
 	 uint32_t MaxRecvWr = 32, uint32_t MaxRecvSge = 4,
 	 uint32_t MaxInlineData = 512>
@@ -479,8 +522,6 @@ struct mkey_sig_none : public mkey_sig {
 		domain.sig_type = MLX5DV_SIG_TYPE_NONE;
 	}
 
-	static void sig_to_buf(uint64_t value, uint8_t *buf, uint32_t block_index) {}
-
 	static bool is_supported(struct mlx5dv_context &attr) {
 		return true;
 	}
@@ -511,18 +552,6 @@ struct mkey_sig_t10dif_type1 : public mkey_sig {
 		domain.sig.dif = &dif;
 	}
 
-	static void sig_to_buf(uint64_t value, uint8_t *buf, uint32_t block_index) {
-		dif_to_sig dif;
-		dif.sig = htobe64(value);
-		if (ntohs(dif.dif.app_tag) != 0xFFFF) {
-			dif.dif.ref_tag = ntohl(dif.dif.ref_tag);
-			dif.dif.ref_tag += block_index;
-			dif.dif.ref_tag = htonl(dif.dif.ref_tag);
-		}
-
-		*(uint64_t *)buf = dif.sig;
-	}
-
 	static bool is_supported(struct mlx5dv_context &attr) {
 		return attr.sig_caps.t10dif_bg & BgType::mlx5_t10dif_caps &&
 		       attr.sig_caps.block_prot & MLX5DV_SIG_PROT_CAP_T10DIF;
@@ -543,10 +572,6 @@ struct mkey_sig_t10dif_type3 : public mkey_sig {
 		dif.flags = MLX5DV_SIG_T10DIF_FLAG_APP_ESCAPE |
 			    MLX5DV_SIG_T10DIF_FLAG_REF_ESCAPE;
 		domain.sig.dif = &dif;
-	}
-
-	static void sig_to_buf(uint64_t value, uint8_t *buf, uint32_t block_index) {
-		*(uint64_t*)buf = htobe64(value);
 	}
 
 	static bool is_supported(struct mlx5dv_context &attr) {
@@ -577,11 +602,6 @@ struct mkey_sig_crc32 : public mkey_sig {
 		domain.sig.crc = &crc;
 	}
 
-	static void sig_to_buf(uint64_t value, uint8_t *buf, uint32_t block_index) {
-		uint32_t value32 = htonl(value & 0xFFFFFFFF);
-		memcpy(buf, &value32, sig_size);
-	}
-
 	static bool is_supported(struct mlx5dv_context &attr) {
 		return attr.sig_caps.crc_type & CrcType::mlx5_crc_type_caps &&
 		       attr.sig_caps.block_prot & MLX5DV_SIG_PROT_CAP_CRC;
@@ -598,10 +618,6 @@ struct mkey_sig_crc64 : public mkey_sig {
 		crc.type = CrcType::mlx5_crc_type;
 		crc.seed.crc64 = Seed;
 		domain.sig.crc = &crc;
-	}
-
-	static void sig_to_buf(uint64_t value, uint8_t *buf, uint32_t block_index) {
-		*(uint64_t*)buf = htobe64(value);
 	}
 
 	static bool is_supported(struct mlx5dv_context &attr) {
