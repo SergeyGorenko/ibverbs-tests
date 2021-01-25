@@ -48,8 +48,8 @@
 
 #define DATA_SIZE 4096
 
-template<typename SrcSigBlock, uint64_t SrcValue,
-	 typename DstSigBlock, uint64_t DstValue,
+template<typename SrcSigBlock, typename SrcValue,
+	 typename DstSigBlock, typename DstValue,
 	 uint32_t NumBlocks = 1, 
 	 typename Qp = ibvt_qp_dv<>, 
 	 typename RdmaOp = rdma_op_read<ibvt_qp_dv<>>>
@@ -91,13 +91,14 @@ struct _mkey_test_sig_block : public mkey_test_base<Qp> {
 	void fill_data() {
 		uint8_t src_buf[src_data_size];
 		uint8_t *buf = src_buf;
-		uint64_t value = SrcValue;
 
 		memset(src_buf, 0xA5, src_data_size);
 		for (uint32_t i = 0; i < NumBlocks; ++i) {
 			buf += src_block_size;
-			SrcSigBlock::MkeyDomainType::SigType::sig_to_buf(value, buf, i);
-			buf += src_sig_size;
+			if (src_sig_size) {
+				SrcValue::sig_to_buf(buf, i);
+				buf += src_sig_size;
+			}
 		}
 		src_mkey.layout->set_data(src_buf, src_data_size);
 	}
@@ -123,7 +124,6 @@ struct _mkey_test_sig_block : public mkey_test_base<Qp> {
 		uint8_t dst_buf[dst_data_size];
 		uint8_t *buf = dst_buf;
 		uint8_t ref_block_buf[dst_block_size];
-		uint64_t value = DstValue;
 		uint8_t ref_sig_buf[dst_sig_size];
 
 		VERBS_TRACE("SrcBlockSize %u, SrcSigSize %u, DstBlockSize %u, DstSigSize %u\n",
@@ -134,10 +134,12 @@ struct _mkey_test_sig_block : public mkey_test_base<Qp> {
 			ASSERT_EQ(0, memcmp(buf, ref_block_buf, dst_block_size));
 			buf += dst_block_size;
 
-			DstSigBlock::MkeyDomainType::SigType::sig_to_buf(value, ref_sig_buf, i);
+			if (dst_sig_size) {
+				DstValue::sig_to_buf(ref_sig_buf, i);
 
-			ASSERT_EQ(0, memcmp(buf, ref_sig_buf, dst_sig_size));
-			buf += dst_sig_size;
+				ASSERT_EQ(0, memcmp(buf, ref_sig_buf, dst_sig_size));
+				buf += dst_sig_size;
+			}
 		}
 	}
 
@@ -168,24 +170,24 @@ struct _mkey_test_sig_block : public mkey_test_base<Qp> {
 };
 
 
-template<typename T_SrcSigBlock, uint64_t T_SrcValue,
-	 typename T_DstSigBlock, uint64_t T_DstValue,
+template<typename T_SrcSigBlock, typename T_SrcValue,
+	 typename T_DstSigBlock, typename T_DstValue,
 	 uint32_t T_NumBlocks = 1,
 	 typename T_Qp = ibvt_qp_dv<>, 
 	 template<typename> typename T_RdmaOp = rdma_op_read>
 struct types {
 	typedef T_SrcSigBlock SrcSigBlock;
-	static constexpr uint64_t SrcValue = T_SrcValue;
+	typedef T_SrcValue SrcValue;
 	typedef T_DstSigBlock DstSigBlock;
-	static constexpr uint64_t DstValue = T_DstValue;
+	typedef T_DstValue DstValue;
 	static constexpr uint64_t NumBlocks = T_NumBlocks;
 	typedef T_Qp Qp;
 	typedef T_RdmaOp<T_Qp> RdmaOp;
 };
 
 template<typename T>
-using mkey_test_sig_block = _mkey_test_sig_block<typename T::SrcSigBlock, T::SrcValue,
-						 typename T::DstSigBlock, T::DstValue,
+using mkey_test_sig_block = _mkey_test_sig_block<typename T::SrcSigBlock, typename T::SrcValue,
+						 typename T::DstSigBlock, typename T::DstValue,
 						 T::NumBlocks,
 						 typename T::Qp,
 						 typename T::RdmaOp>;
@@ -214,155 +216,195 @@ typedef testing::Types<
 
 	// Wire domain
 	types<mkey_sig_block<mkey_sig_block_domain_none,
-			     mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>, 0,
+			     mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>, sig_none,
 	      mkey_sig_block<mkey_sig_block_domain_none,
-			     mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>, 0>,
+			     mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>, sig_none>,
 	types<mkey_sig_block<mkey_sig_block_domain_none,
-			     mkey_sig_block_domain<mkey_sig_crc32c, mkey_sig_block_size_512>>, 0,
+			     mkey_sig_block_domain<mkey_sig_crc32c, mkey_sig_block_size_512>>, sig_none,
 	      mkey_sig_block<mkey_sig_block_domain_none,
-			     mkey_sig_block_domain<mkey_sig_crc32c, mkey_sig_block_size_512>>, 0>,
+			     mkey_sig_block_domain<mkey_sig_crc32c, mkey_sig_block_size_512>>, sig_none>,
 	types<mkey_sig_block<mkey_sig_block_domain_none,
-			     mkey_sig_block_domain<mkey_sig_crc64xp10, mkey_sig_block_size_512>>, 0,
+			     mkey_sig_block_domain<mkey_sig_crc64xp10, mkey_sig_block_size_512>>, sig_none,
 	      mkey_sig_block<mkey_sig_block_domain_none,
-			     mkey_sig_block_domain<mkey_sig_crc64xp10, mkey_sig_block_size_512>>, 0>,
+			     mkey_sig_block_domain<mkey_sig_crc64xp10, mkey_sig_block_size_512>>, sig_none>,
 
 	types<mkey_sig_block<mkey_sig_block_domain_none,
-			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>, 0,
+			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>,
+			     t10dif_sig<0,0,0>,
 	      mkey_sig_block<mkey_sig_block_domain_none,
-			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>, 0>,
+			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>,
+			     t10dif_sig<0,0,0>>,
 	types<mkey_sig_block<mkey_sig_block_domain_none,
-			     mkey_sig_block_domain<mkey_sig_t10dif_csum_type1_default, mkey_sig_block_size_512>>, 0,
+			     mkey_sig_block_domain<mkey_sig_t10dif_csum_type1_default, mkey_sig_block_size_512>>,
+			     t10dif_sig<0,0,0>,
 	      mkey_sig_block<mkey_sig_block_domain_none,
-			     mkey_sig_block_domain<mkey_sig_t10dif_csum_type1_default, mkey_sig_block_size_512>>, 0>,
+			     mkey_sig_block_domain<mkey_sig_t10dif_csum_type1_default, mkey_sig_block_size_512>>,
+			     t10dif_sig<0,0,0>>,
 
 	types<mkey_sig_block<mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>,
-			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>, 0xec7d5678f0debc9a,
+			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>,
+			     t10dif_sig<0xec7d,0x5678,0xf0debc9a>,
 	      mkey_sig_block<mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>,
-			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>, 0xec7d5678f0debc9a, 2>,
+			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>,
+			     t10dif_sig<0xec7d,0x5678,0xf0debc9a>, 2>,
 	types<mkey_sig_block<mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>,
-			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>, 0xec7d5678f0debc9a,
+			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>,
+			     t10dif_sig<0xec7d,0x5678,0xf0debc9a>,
 	      mkey_sig_block<mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>,
-			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>, 0xec7d5678f0debc9a, 2>,
+			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>,
+			     t10dif_sig<0xec7d,0x5678,0xf0debc9a>, 2>,
 
 	types<mkey_sig_block<mkey_sig_block_domain<mkey_sig_t10dif_crc_type3_default, mkey_sig_block_size_512>,
-			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type3_default, mkey_sig_block_size_512>>, 0xec7d5678f0debc9a,
+			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type3_default, mkey_sig_block_size_512>>,
+			     t10dif_sig<0xec7d,0x5678,0xf0debc9a, false>,
 	      mkey_sig_block<mkey_sig_block_domain<mkey_sig_t10dif_crc_type3_default, mkey_sig_block_size_512>,
-			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type3_default, mkey_sig_block_size_512>>, 0xec7d5678f0debc9a, 2>,
+			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type3_default, mkey_sig_block_size_512>>,
+			     t10dif_sig<0xec7d,0x5678,0xf0debc9a, false>, 2>,
 	types<mkey_sig_block<mkey_sig_block_domain<mkey_sig_t10dif_crc_type3_default, mkey_sig_block_size_512>,
-			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type3_default, mkey_sig_block_size_512>>, 0xec7d5678f0debc9a,
+			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type3_default, mkey_sig_block_size_512>>,
+			     t10dif_sig<0xec7d,0x5678,0xf0debc9a, false>,
 	      mkey_sig_block<mkey_sig_block_domain<mkey_sig_t10dif_crc_type3_default, mkey_sig_block_size_512>,
-			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type3_default, mkey_sig_block_size_512>>, 0xec7d5678f0debc9a, 2>,
+			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type3_default, mkey_sig_block_size_512>>,
+			     t10dif_sig<0xec7d,0x5678,0xf0debc9a, false>, 2>,
 
 	// BG types of src mem and wire are same, but seeds are different, mem seed is 0x0000 and wire seed is 0xffff
 	types<mkey_sig_block<mkey_sig_block_domain<mkey_sig_t10dif_type1<mkey_sig_t10dif_crc, 0x0000, 0x5678, 0xf0debc9a>,
 						   mkey_sig_block_size_512>,
 			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>,
 	      // guard = 0x9ec6 is calculated with seed 0x0000
-	      0x9ec65678f0debc9a,
+	      t10dif_sig<0x9ec6,0x5678,0xf0debc9a>,
 	      mkey_sig_block<mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>,
 			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>,
 	      // guard = 0xec7d is calculated with seed 0xffff
-	      0xec7d5678f0debc9a, 2>,
+	      t10dif_sig<0xec7d,0x5678,0xf0debc9a>, 2>,
 
 	// BG types of src mem and wire are different, and seeds are also different, mem seed is 0x0000 and wire seed is 0xffff
 	types<mkey_sig_block<mkey_sig_block_domain<mkey_sig_t10dif_type1<mkey_sig_t10dif_crc, 0x0000, 0x5678, 0xf0debc9a>,
 						   mkey_sig_block_size_512>,
 			     mkey_sig_block_domain<mkey_sig_t10dif_csum_type1_default, mkey_sig_block_size_512>>,
 	      // guard = 0x9ec6 is calculated with seed 0x0000
-	      0x9ec65678f0debc9a,
+	      t10dif_sig<0x9ec6,0x5678,0xf0debc9a>,
 	      mkey_sig_block<mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>,
 			     mkey_sig_block_domain<mkey_sig_t10dif_csum_type1_default, mkey_sig_block_size_512>>,
 	      // guard = 0xec7d is calculated with seed 0xffff
-	      0xec7d5678f0debc9a, 2>,
+	      t10dif_sig<0xec7d,0x5678,0xf0debc9a>, 2>,
 
 	// Mkey domain
 	types<mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
-			     mkey_sig_block_domain_none>, 0x699ACA21,
+			     mkey_sig_block_domain_none>, crc32_sig<0x699ACA21>,
 	      mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32c, mkey_sig_block_size_512>,
-			     mkey_sig_block_domain_none>, 0x4207E6B4>,
+			     mkey_sig_block_domain_none>, crc32_sig<0x4207E6B4>>,
 	// @todo: check crc64 signature
 	types<mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
-			     mkey_sig_block_domain_none>, 0x699ACA21,
+			     mkey_sig_block_domain_none>, crc32_sig<0x699ACA21>,
 	      mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc64xp10, mkey_sig_block_size_512>,
-			     mkey_sig_block_domain_none>, 0x8C8ADB450CCE85AA>
+			     mkey_sig_block_domain_none>, crc64_sig<0x8C8ADB450CCE85AA>>
 	> mkey_test_list_sig_types;
 INSTANTIATE_TYPED_TEST_CASE_P(sig_types, mkey_test_sig_block, mkey_test_list_sig_types);
 
 typedef testing::Types<
 	types<mkey_sig_block<mkey_sig_block_domain_none,
-			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>, 0,
+			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>,
+			     t10dif_sig<0,0,0>,
 	      mkey_sig_block<mkey_sig_block_domain_none,
-			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>, 0,
+			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>,
+			     t10dif_sig<0,0,0>,
 	      1, ibvt_qp_dv<>, rdma_op_read>,
 	types<mkey_sig_block<mkey_sig_block_domain_none,
-			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>, 0,
+			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>,
+			     t10dif_sig<0,0,0>,
 	      mkey_sig_block<mkey_sig_block_domain_none,
-			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>, 0,
+			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>,
+			     t10dif_sig<0,0,0>,
 	      1, ibvt_qp_dv<>, rdma_op_write>,
 
 	types<mkey_sig_block<mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>,
-			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>, 0xec7d5678f0debc9a,
+			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>,
+			     t10dif_sig<0xec7d,0x5678,0xf0debc9a>,
 	      mkey_sig_block<mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>,
-			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>, 0xec7d5678f0debc9a,
+			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>,
+			     t10dif_sig<0xec7d,0x5678,0xf0debc9a>,
 	      1, ibvt_qp_dv<>, rdma_op_read>,
 	types<mkey_sig_block<mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>,
-			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>, 0xec7d5678f0debc9a,
+			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>,
+			     t10dif_sig<0xec7d,0x5678,0xf0debc9a>,
 	      mkey_sig_block<mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>,
-			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>, 0xec7d5678f0debc9a,
+			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>,
+			     t10dif_sig<0xec7d,0x5678,0xf0debc9a>,
 	      1, ibvt_qp_dv<>, rdma_op_write>,
 
 	types<mkey_sig_block<mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>,
-			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>, 0xec7d5678f0debc9a,
+			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>,
+			     t10dif_sig<0xec7d,0x5678,0xf0debc9a>,
 	      mkey_sig_block<mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>,
-			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>, 0xec7d5678f0debc9a,
+			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>,
+			     t10dif_sig<0xec7d,0x5678,0xf0debc9a>,
 	      2, ibvt_qp_dv<>, rdma_op_read>,
 	types<mkey_sig_block<mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>,
-			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>, 0xec7d5678f0debc9a,
+			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>,
+			     t10dif_sig<0xec7d,0x5678,0xf0debc9a>,
 	      mkey_sig_block<mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>,
-			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>, 0xec7d5678f0debc9a,
+			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>,
+			     t10dif_sig<0xec7d,0x5678,0xf0debc9a>,
 	      2, ibvt_qp_dv<>, rdma_op_write>,
 
 	types<mkey_sig_block<mkey_sig_block_domain_none,
-			     mkey_sig_block_domain<mkey_sig_t10dif_csum_type1_default, mkey_sig_block_size_512>>, 0,
+			     mkey_sig_block_domain<mkey_sig_t10dif_csum_type1_default, mkey_sig_block_size_512>>,
+			     t10dif_sig<0,0,0>,
 	      mkey_sig_block<mkey_sig_block_domain_none,
-			     mkey_sig_block_domain<mkey_sig_t10dif_csum_type1_default, mkey_sig_block_size_512>>, 0,
+			     mkey_sig_block_domain<mkey_sig_t10dif_csum_type1_default, mkey_sig_block_size_512>>,
+			     t10dif_sig<0,0,0>,
 	      1, ibvt_qp_dv<>, rdma_op_read>,
 
 	types<mkey_sig_block<mkey_sig_block_domain_none,
-			     mkey_sig_block_domain<mkey_sig_t10dif_csum_type1_default, mkey_sig_block_size_512>>, 0,
+			     mkey_sig_block_domain<mkey_sig_t10dif_csum_type1_default, mkey_sig_block_size_512>>,
+			     t10dif_sig<0,0,0>,
 	      mkey_sig_block<mkey_sig_block_domain_none,
-			     mkey_sig_block_domain<mkey_sig_t10dif_csum_type1_default, mkey_sig_block_size_512>>, 0,
+			     mkey_sig_block_domain<mkey_sig_t10dif_csum_type1_default, mkey_sig_block_size_512>>,
+			     t10dif_sig<0,0,0>,
 	      1, ibvt_qp_dv<>, rdma_op_read>,
 	types<mkey_sig_block<mkey_sig_block_domain_none,
-			     mkey_sig_block_domain<mkey_sig_t10dif_csum_type1_default, mkey_sig_block_size_512>>, 0,
+			     mkey_sig_block_domain<mkey_sig_t10dif_csum_type1_default, mkey_sig_block_size_512>>,
+			     t10dif_sig<0,0,0>,
 	      mkey_sig_block<mkey_sig_block_domain_none,
-			     mkey_sig_block_domain<mkey_sig_t10dif_csum_type1_default, mkey_sig_block_size_512>>, 0,
+			     mkey_sig_block_domain<mkey_sig_t10dif_csum_type1_default, mkey_sig_block_size_512>>,
+			     t10dif_sig<0,0,0>,
 	      1, ibvt_qp_dv<>, rdma_op_write>,
 	types<mkey_sig_block<mkey_sig_block_domain_none,
-			     mkey_sig_block_domain<mkey_sig_t10dif_csum_type1_default, mkey_sig_block_size_512>>, 0,
+			     mkey_sig_block_domain<mkey_sig_t10dif_csum_type1_default, mkey_sig_block_size_512>>,
+			     t10dif_sig<0,0,0>,
 	      mkey_sig_block<mkey_sig_block_domain_none,
-			     mkey_sig_block_domain<mkey_sig_t10dif_csum_type1_default, mkey_sig_block_size_512>>, 0,
+			     mkey_sig_block_domain<mkey_sig_t10dif_csum_type1_default, mkey_sig_block_size_512>>,
+			     t10dif_sig<0,0,0>,
 	      1, ibvt_qp_dv<>, rdma_op_send>,
 
 	types<mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
-			     mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>, 0x699ACA21,
+			     mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>,
+			     crc32_sig<0x699ACA21>,
 	      mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
-			     mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>, 0x699ACA21,
+			     mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>,
+			     crc32_sig<0x699ACA21>,
 	      1, ibvt_qp_dv<>, rdma_op_read>,
 	types<mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
-			     mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>, 0x699ACA21,
+			     mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>,
+			     crc32_sig<0x699ACA21>,
 	      mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
-			     mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>, 0x699ACA21,
+			     mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>,
+			     crc32_sig<0x699ACA21>,
 	      1, ibvt_qp_dv<>, rdma_op_write>,
 	types<mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
-			     mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>, 0x699ACA21,
+			     mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>,
+			     crc32_sig<0x699ACA21>,
 	      mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
-			     mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>, 0x699ACA21,
+			     mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>,
+			     crc32_sig<0x699ACA21>,
 	      1, ibvt_qp_dv<128,16,32,4,512>, rdma_op_write>,
 	types<mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
-			     mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>, 0x699ACA21,
+			     mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>,
+			     crc32_sig<0x699ACA21>,
 	      mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
-			     mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>, 0x699ACA21,
+			     mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>,
+			     crc32_sig<0x699ACA21>,
 	      1, ibvt_qp_dv<>, rdma_op_send>
 
 	> mkey_test_list_ops;
@@ -372,10 +414,10 @@ template<typename T>
 using mkey_test_sig_block_fence = _mkey_test_sig_block<
 	mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
 		       mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>,
-	0x699ACA21,
+	crc32_sig<0x699ACA21>,
 	mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
 		       mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>>,
-	0x699ACA21,
+	crc32_sig<0x699ACA21>,
 	1,
 	ibvt_qp_dv<>,
 	typename T::RdmaOp>;
@@ -510,12 +552,12 @@ typedef _mkey_test_sig_block<
     // guard = 0x0000 is an incorerrect value, CRC16(data) is expected
     // app_tag = 0xffff is a magic number to checking of guard and ref_tag
     // ref_tag = 0x00000000 is an incorrect values, 0x0x0000000f is expected
-    0x0000ffff00000000,
+    t10dif_sig<0x0000,0xffff,0x00000000>,
     mkey_sig_block<mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default,
 					 mkey_sig_block_size_512>,
 		   mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default,
 					 mkey_sig_block_size_512> >,
-    0xec7d5678f0debc9a, 2, ibvt_qp_dv<>,
+    t10dif_sig<0xec7d,0x5678,0xf0debc9a>, 2, ibvt_qp_dv<>,
     rdma_op_write<ibvt_qp_dv<> > > mkey_test_t10dif_type1;
 
 TEST_F(mkey_test_t10dif_type1, skipCheckRefTag) {
@@ -527,7 +569,6 @@ TEST_F(mkey_test_t10dif_type1, skipCheckRefTag) {
 	// this->dst_mkey.layout->dump(0, 0, "DST");
 	this->src_mkey.check(MLX5DV_MKEY_NO_ERR);
 }
-
 typedef _mkey_test_sig_block<
     mkey_sig_block<
 	mkey_sig_block_domain<mkey_sig_t10dif_type3<mkey_sig_t10dif_crc, 0xffff,
@@ -538,12 +579,12 @@ typedef _mkey_test_sig_block<
     // guard = 0x0000 is an incorerrect value, CRC16(data) is expected
     // app_tag = 0xffff and ref_tag = 0xffffffff are magic numbes to skip
     //      cheking of guard
-    0x0000ffffffffffff,
+    t10dif_sig<0x0000,0xffff,0xffffffff, false>,
     mkey_sig_block<mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default,
 					 mkey_sig_block_size_512>,
 		   mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default,
 					 mkey_sig_block_size_512> >,
-    0xec7d5678f0debc9a, 2, ibvt_qp_dv<>,
+    t10dif_sig<0xec7d,0x5678,0xf0debc9a>, 2, ibvt_qp_dv<>,
     rdma_op_write<ibvt_qp_dv<> > > mkey_test_t10dif_type3;
 
 TEST_F(mkey_test_t10dif_type3, skipCheckRefTag) {
@@ -561,18 +602,17 @@ typedef _mkey_test_sig_block<
 			      mkey_sig_block_size_512>,
 	mkey_sig_block_domain<mkey_sig_t10dif_type1<mkey_sig_t10dif_crc, 0xffff,
 						    0x1234, 0xf0debc9a>,
-			      mkey_sig_block_size_512>,
-	MLX5DV_SIG_CHECK_T10DIF_APPTAG_BYTE0>,
-    0xec7d5678f0debc9a,
-    mkey_sig_block<
-	mkey_sig_block_domain<mkey_sig_t10dif_type1<mkey_sig_t10dif_crc, 0xffff,
+					 mkey_sig_block_size_512>, 
+		   MLX5DV_SIG_CHECK_T10DIF_APPTAG_BYTE0>,
+    t10dif_sig<0xec7d,0x5678,0xf0debc9a>,
+    mkey_sig_block<mkey_sig_block_domain<mkey_sig_t10dif_type1<mkey_sig_t10dif_crc, 0xffff,
 						    0x5678, 0xf0debc9a>,
 			      mkey_sig_block_size_512>,
 	mkey_sig_block_domain<mkey_sig_t10dif_type1<mkey_sig_t10dif_crc, 0xffff,
 						    0x1234, 0xf0debc9a>,
-			      mkey_sig_block_size_512> >,
-    // APP Tag 0x5678 is regenerated
-    0xec7d5678f0debc9a, 1, ibvt_qp_dv<>,
+					 mkey_sig_block_size_512>,0>,
+    //APP Tag 0x5678 is regenerated
+    t10dif_sig<0xec7d,0x5678,0xf0debc9a>, 1, ibvt_qp_dv<>,
     rdma_op_write<ibvt_qp_dv<> > > mkey_test_different_app_tag_byte0_rdma_write;
 
 TEST_F(mkey_test_different_app_tag_byte0_rdma_write, corruptByte1) {
@@ -641,13 +681,13 @@ typedef _mkey_test_sig_block<
 		   mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default,
 					 mkey_sig_block_size_512>,
 		   MLX5DV_SIG_CHECK_T10DIF_APPTAG_BYTE0>,
-    0xec7d5678f0debc9a,
+    t10dif_sig<0xec7d,0x5678,0xf0debc9a>,
     mkey_sig_block<mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default,
 					 mkey_sig_block_size_512>,
 		   mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default,
-					 mkey_sig_block_size_512> >,
-    0xec7dA978f0debc9a, 1, ibvt_qp_dv<>,
-    rdma_op_read<ibvt_qp_dv<> > > mkey_test_same_app_tag_byte0_rdma_read;
+					 mkey_sig_block_size_512>,0>,
+    t10dif_sig<0xec7d,0xA978,0xf0debc9a>, 1, ibvt_qp_dv<>,
+    rdma_op_write<ibvt_qp_dv<> > > mkey_test_same_app_tag_byte0_rdma_read;
 
 TEST_F(mkey_test_same_app_tag_byte0_rdma_read, corruptByte1) {
 
@@ -705,13 +745,13 @@ typedef _mkey_test_sig_block<
 					 mkey_sig_block_size_512>,
 		   mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default,
 					 mkey_sig_block_size_512> >,
-    0xec7d5678f0debc9a,
+    t10dif_sig<0xec7d,0x5678,0xf0debc9a>,
     mkey_sig_block<mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default,
 					 mkey_sig_block_size_512>,
 		   mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default,
 					 mkey_sig_block_size_512> >,
-    0xec7d5678f0debc9a, 1, ibvt_qp_dv<>,
-    rdma_op_write<ibvt_qp_dv<> > > mkey_test_sig_corrupt;
+    t10dif_sig<0xec7d,0x5678,0xf0debc9a>, 1, ibvt_qp_dv<>,
+    rdma_op_write<ibvt_qp_dv<>>> mkey_test_sig_corrupt;
 
 TEST_F(mkey_test_sig_corrupt, guardError) {
 
@@ -755,14 +795,15 @@ typedef _mkey_test_sig_block<
 	mkey_sig_block_domain<mkey_sig_t10dif_type1<mkey_sig_t10dif_crc, 0xffff,
 						    0x5678, 0xff000000>,
 			      mkey_sig_block_size_512>,
-	mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default,
-			      mkey_sig_block_size_512> >,
-    0xec7d5678f0debc9a,
+	mkey_sig_block_domain<
+	    mkey_sig_t10dif_crc_type1_default,
+	    mkey_sig_block_size_512> >,
+    t10dif_sig<0xec7d,0x5678,0xf0debc9a>,
     mkey_sig_block<mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default,
 					 mkey_sig_block_size_512>,
 		   mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default,
 					 mkey_sig_block_size_512> >,
-    0xec7d5678f0debc9a, 1, ibvt_qp_dv<>,
+    t10dif_sig<0xec7d,0x5678,0xf0debc9a>, 1, ibvt_qp_dv<>,
     rdma_op_write<ibvt_qp_dv<> > > mkey_test_sig_incorrect_ref_tag;
 TEST_F(mkey_test_sig_incorrect_ref_tag, refTagError) {
 
@@ -778,11 +819,11 @@ typedef _mkey_test_sig_block<
     mkey_sig_block<
 	mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
 	mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512> >,
-    0x699ACA21,
+    crc32_sig<0x699ACA21>,
     mkey_sig_block<
 	mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
 	mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512> >,
-    0x699ACA21, 1, ibvt_qp_dv<>,
+    crc32_sig<0x699ACA21>, 1, ibvt_qp_dv<>,
     rdma_op_write<ibvt_qp_dv<> > > mkey_test_crc_sig_corrupt;
 
 TEST_F(mkey_test_crc_sig_corrupt, corruptData) {
