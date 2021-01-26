@@ -841,29 +841,15 @@ struct mkey_test_side : public ibvt_obj {
 	}
 };
 
-template<typename QP>
 struct rdma_op {
-	virtual void wr_submit(mkey_test_side<QP> &src_side,
-			       ibv_sge src_sge,
-			       mkey_test_side<QP> &dst_side,
-			       ibv_sge dst_sge) = 0;
-
-	virtual void submit(mkey_test_side<QP> &src_side,
-			    ibv_sge src_sge,
-			    mkey_test_side<QP> &dst_side,
-			    ibv_sge dst_sge) = 0;
-
-	virtual void complete(mkey_test_side<QP> &src_side,
-			      mkey_test_side<QP> &dst_side,
-			      enum ibv_wc_status src_status = IBV_WC_SUCCESS,
-			      enum ibv_wc_status dst_status = IBV_WC_SUCCESS) = 0;
-
+	template<typename QP>
 	void check_completion(mkey_test_side<QP> &side, enum ibv_wc_status status = IBV_WC_SUCCESS) {
 		ibvt_wc wc(side.cq);
 		side.cq.do_poll(wc);
 		ASSERT_EQ(status, wc().status);
 	}
 
+	template<typename QP>
 	void check_completion(mkey_test_side<QP> &side,
 				     enum ibv_wc_opcode opcode,
 				     enum ibv_wc_status status = IBV_WC_SUCCESS) {
@@ -874,130 +860,98 @@ struct rdma_op {
 	}
 };
 
-template<typename QP>
-struct rdma_op_write : public rdma_op<QP> {
-	virtual void wr_submit(mkey_test_side<QP> &src_side,
+struct rdma_op_write : rdma_op {
+	template<typename QP>
+	void wr_submit(mkey_test_side<QP> &src_side,
 			       ibv_sge src_sge,
 			       mkey_test_side<QP> &dst_side,
-			       ibv_sge dst_sge) override {
+			       ibv_sge dst_sge) {
 		src_side.qp.wr_flags(IBV_SEND_SIGNALED);
 		src_side.qp.wr_rdma_write(src_sge, dst_sge);
 	}
 
-	virtual void submit(mkey_test_side<QP> &src_side,
+	template<typename QP>
+	void submit(mkey_test_side<QP> &src_side,
 			    ibv_sge src_sge,
 			    mkey_test_side<QP> &dst_side,
-			    ibv_sge dst_sge) override {
+			    ibv_sge dst_sge) {
 		src_side.qp.wr_start();
 		wr_submit(src_side, src_sge, dst_side, dst_sge);
 		src_side.qp.wr_complete();
 	}
 
-	virtual void complete(mkey_test_side<QP> &src_side,
+	template<typename QP>
+	void complete(mkey_test_side<QP> &src_side,
 			      mkey_test_side<QP> &dst_side,
 			      enum ibv_wc_status src_status = IBV_WC_SUCCESS,
-			      enum ibv_wc_status dst_status = IBV_WC_SUCCESS) override {
+			      enum ibv_wc_status dst_status = IBV_WC_SUCCESS) {
 		this->check_completion(src_side, src_status);
 		dst_side.trigger_poll();
 	}
 };
 
-template<typename QP>
-struct rdma_op_read : public rdma_op<QP> {
-	virtual void wr_submit(mkey_test_side<QP> &src_side,
+struct rdma_op_read : rdma_op {
+	template<typename QP>
+	void wr_submit(mkey_test_side<QP> &src_side,
 			       ibv_sge src_sge,
 			       mkey_test_side<QP> &dst_side,
-			       ibv_sge dst_sge) override {
+			       ibv_sge dst_sge) {
 		dst_side.qp.wr_flags(IBV_SEND_SIGNALED);
 		dst_side.qp.wr_rdma_read(dst_sge, src_sge);
 	}
 
-	virtual void submit(mkey_test_side<QP> &src_side,
+	template<typename QP>
+	void submit(mkey_test_side<QP> &src_side,
 			    ibv_sge src_sge,
 			    mkey_test_side<QP> &dst_side,
-			    ibv_sge dst_sge) override {
+			    ibv_sge dst_sge) {
 		dst_side.qp.wr_start();
 		wr_submit(src_side, src_sge, dst_side, dst_sge);
 		dst_side.qp.wr_complete();
 	}
 
-	virtual void complete(mkey_test_side<QP> &src_side,
+	template<typename QP>
+	void complete(mkey_test_side<QP> &src_side,
 			      mkey_test_side<QP> &dst_side,
 			      enum ibv_wc_status src_status = IBV_WC_SUCCESS,
-			      enum ibv_wc_status dst_status = IBV_WC_SUCCESS) override {
+			      enum ibv_wc_status dst_status = IBV_WC_SUCCESS) {
 		this->check_completion(dst_side, dst_status);
 		src_side.trigger_poll();
 	}
 };
 
-template<typename QP>
-struct rdma_op_send : public rdma_op<QP> {
-	virtual void wr_submit(mkey_test_side<QP> &src_side,
+struct rdma_op_send : rdma_op {
+	template<typename QP>
+	void wr_submit(mkey_test_side<QP> &src_side,
 			       ibv_sge src_sge,
 			       mkey_test_side<QP> &dst_side,
-			       ibv_sge dst_sge) override {
+			       ibv_sge dst_sge) {
 		// @todo: chaining for recv part is not implemented
 		dst_side.qp.recv(dst_sge);
 		src_side.qp.wr_flags(IBV_SEND_SIGNALED);
 		src_side.qp.wr_send(src_sge);
 	}
-	virtual void submit(mkey_test_side<QP> &src_side,
+
+	template<typename QP>
+	void submit(mkey_test_side<QP> &src_side,
 			    ibv_sge src_sge,
 			    mkey_test_side<QP> &dst_side,
-			    ibv_sge dst_sge) override {
+			    ibv_sge dst_sge) {
 		dst_side.qp.recv(dst_sge);
 		src_side.qp.wr_start();
 		wr_submit(src_side, src_sge, dst_side, dst_sge);
 		src_side.qp.wr_complete();
 	}
 
-	virtual void complete(mkey_test_side<QP> &src_side,
+	template<typename QP>
+	void complete(mkey_test_side<QP> &src_side,
 			      mkey_test_side<QP> &dst_side,
 			      enum ibv_wc_status src_status = IBV_WC_SUCCESS,
-			      enum ibv_wc_status dst_status = IBV_WC_SUCCESS) override {
+			      enum ibv_wc_status dst_status = IBV_WC_SUCCESS) {
 		this->check_completion(src_side, src_status);
 		this->check_completion(dst_side, dst_status);
 	}
 
-};
-
-template<typename QP>
-struct rdma_op_all : public rdma_op<QP> {
-	virtual void wr_submit(mkey_test_side<QP> &src_side,
-			       ibv_sge src_sge,
-			       mkey_test_side<QP> &dst_side,
-			       ibv_sge dst_sge) override {
-		struct rdma_op_read<QP> read;
-		struct rdma_op_write<QP> write;
-		struct rdma_op_send<QP> send;
-		read.wr_submit(src_side, src_sge, dst_side, dst_sge);
-		write.wr_submit(src_side, src_sge, dst_side, dst_sge);
-		send.wr_submit(src_side, src_sge, dst_side, dst_sge);
-	}
-
-	virtual void submit(mkey_test_side<QP> &src_side,
-			    ibv_sge src_sge,
-			    mkey_test_side<QP> &dst_side,
-			    ibv_sge dst_sge) override {
-		struct rdma_op_read<QP> read;
-		struct rdma_op_write<QP> write;
-		struct rdma_op_send<QP> send;
-		read.submit(src_side, src_sge, dst_side, dst_sge);
-		write.submit(src_side, src_sge, dst_side, dst_sge);
-		send.submit(src_side, src_sge, dst_side, dst_sge);
-	}
-
-	virtual void complete(mkey_test_side<QP> &src_side,
-			      mkey_test_side<QP> &dst_side,
-			      enum ibv_wc_status src_status = IBV_WC_SUCCESS,
-			      enum ibv_wc_status dst_status = IBV_WC_SUCCESS) override {
-		struct rdma_op_read<QP> read;
-		struct rdma_op_write<QP> write;
-		struct rdma_op_send<QP> send;
-		read.complete(src_side, dst_side, src_status, dst_status);
-		write.complete(src_side, dst_side, src_status, dst_status);
-		send.complete(src_side, dst_side, src_status, dst_status);
-	}
 };
 
 template<typename Qp>
