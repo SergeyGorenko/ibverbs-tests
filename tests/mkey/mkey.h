@@ -90,7 +90,7 @@ template <uint64_t Sig> struct crc64_sig {
 
 template<uint32_t MaxSendWr = 128, uint32_t MaxSendSge = 16,
 	 uint32_t MaxRecvWr = 32, uint32_t MaxRecvSge = 4,
-	 uint32_t MaxInlineData = 512>
+	 uint32_t MaxInlineData = 512, bool Pipelining = false>
 struct ibvt_qp_dv : public ibvt_qp_rc {
 	ibvt_qp_dv(ibvt_env &e, ibvt_pd &p, ibvt_cq &c) :
 		ibvt_qp_rc(e, p, c) {}
@@ -112,6 +112,11 @@ struct ibvt_qp_dv : public ibvt_qp_rc {
 	virtual void init_dv_attr(struct mlx5dv_qp_init_attr &dv_attr) {
 		dv_attr.comp_mask = MLX5DV_QP_INIT_ATTR_MASK_SEND_OPS_FLAGS;
 		dv_attr.send_ops_flags = MLX5DV_QP_EX_WITH_MKEY_CONFIGURE;
+		if (Pipelining) {
+			dv_attr.comp_mask |=
+			    MLX5DV_QP_INIT_ATTR_MASK_QP_CREATE_FLAGS;
+			dv_attr.create_flags = MLX5DV_QP_CREATE_SIG_PIPELINING;
+		}
 	}
 
 	virtual void init() override {
@@ -162,6 +167,28 @@ struct ibvt_qp_dv : public ibvt_qp_rc {
 		ibv_wr_set_sge_list(qpx, 1, &local_sge);
 	}
 
+	virtual void cancel_posted_wrs(uint64_t wr_id, int wr_num) {
+		struct mlx5dv_qp_ex *dv_qp;
+		struct ibv_qp_ex *qpx = ibv_qp_to_qp_ex(qp);
+
+		dv_qp = mlx5dv_qp_ex_from_ibv_qp_ex(qpx);
+		int ret = mlx5dv_qp_cancel_posted_wrs(dv_qp, wr_id);
+		ASSERT_EQ(wr_num, ret);
+	}
+
+	virtual void modify_qp_to_rts() {
+		struct ibv_qp_attr attr;
+
+		memset(&attr, 0, sizeof(attr));
+
+		attr.qp_state      = IBV_QPS_RTS;
+		attr.timeout       = 14;
+		attr.retry_cnt     = 7;
+		attr.rnr_retry     = 7;
+		attr.sq_psn        = 0;
+		attr.max_rd_atomic = 1;
+		DO(ibv_modify_qp(qp, &attr, IBV_QP_STATE));
+	}
 };
 
 struct mkey : public ibvt_abstract_mr {
@@ -835,6 +862,15 @@ struct rdma_op {
 		ibvt_wc wc(side.cq);
 		side.cq.do_poll(wc);
 		ASSERT_EQ(status, wc().status);
+	}
+
+	void check_completion(mkey_test_side<QP> &side,
+				     enum ibv_wc_opcode opcode,
+				     enum ibv_wc_status status = IBV_WC_SUCCESS) {
+		ibvt_wc wc(side.cq);
+		side.cq.do_poll(wc);
+		ASSERT_EQ(status, wc().status);
+		ASSERT_EQ(opcode, wc().opcode);
 	}
 };
 
