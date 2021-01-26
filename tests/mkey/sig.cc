@@ -167,6 +167,14 @@ struct _mkey_test_sig_block : public mkey_test_base<Qp> {
 				    dst_side, dst_mkey.sge()));
 		EXEC(rdma_op.complete(src_side, dst_side));
 	}
+
+	void check_async_event(enum ibv_event_type type)
+	{
+		struct ibv_async_event event;
+		ASSERT_EQ(0, ibv_get_async_event(this->ctx.ctx, &event));
+		ibv_ack_async_event(&event);
+		ASSERT_EQ(type, event.event_type);
+	}
 };
 
 
@@ -347,14 +355,6 @@ typedef testing::Types<
 			     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>,
 			     t10dif_sig<0xec7d,0x5678,0xf0debc9a>,
 	      2, ibvt_qp_dv<>, rdma_op_write>,
-
-	types<mkey_sig_block<mkey_sig_block_domain_none,
-			     mkey_sig_block_domain<mkey_sig_t10dif_csum_type1_default, mkey_sig_block_size_512>>,
-			     t10dif_sig<0,0,0>,
-	      mkey_sig_block<mkey_sig_block_domain_none,
-			     mkey_sig_block_domain<mkey_sig_t10dif_csum_type1_default, mkey_sig_block_size_512>>,
-			     t10dif_sig<0,0,0>,
-	      1, ibvt_qp_dv<>, rdma_op_read>,
 
 	types<mkey_sig_block<mkey_sig_block_domain_none,
 			     mkey_sig_block_domain<mkey_sig_t10dif_csum_type1_default, mkey_sig_block_size_512>>,
@@ -849,3 +849,50 @@ TEST_F(mkey_test_crc_sig_corrupt, corruptSig) {
 	this->src_mkey.check(MLX5DV_MKEY_SIG_BLOCK_BAD_GUARD, 0x969ACA21, 0x699ACA21,
 			     src_block_size + src_sig_size - 1);
 }
+
+typedef _mkey_test_sig_block<
+    mkey_sig_block<mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default,
+					 mkey_sig_block_size_512>,
+		   mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default,
+					 mkey_sig_block_size_512> >,
+    t10dif_sig<0xec7d,0x5678,0xf0debc9a>,
+    mkey_sig_block<mkey_sig_block_domain_none,
+		   mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default,
+					 mkey_sig_block_size_512> >,
+    sig_none, 1, ibvt_qp_dv<128,16,32,4,512,true>,
+    rdma_op_write<ibvt_qp_dv<128,16,32,4,512,true>>> mkey_test_sig_pipelining;
+
+TEST_F(mkey_test_sig_pipelining, pipeliningBasicFlow) {
+	SIG_CHK_SUT();
+
+	const size_t SEND_SIZE = 64;
+	ibvt_mr send_mr(env, this->src_side.pd, SEND_SIZE); // for send data
+	ibvt_mr recv_mr(env, this->dst_side.pd, SEND_SIZE);
+	rdma_op_send<ibvt_qp_dv<128,16,32,4,512,true>> send_op;
+
+	send_mr.init();
+	send_mr.fill();
+	recv_mr.init();
+	recv_mr.fill();
+
+	EXEC(fill_data());
+	EXEC(corrupt_data(0));
+	EXEC(configure_mkeys());
+
+	EXEC(src_side.qp.wr_start());
+	EXEC(src_side.qp.wr_id(1));
+	EXEC(rdma_op.wr_submit(src_side, src_mkey.sge(), dst_side, dst_mkey.sge()));
+	EXEC(src_side.qp.wr_id(2));
+	EXECL(send_op.wr_submit(src_side, send_mr.sge(), dst_side, recv_mr.sge()));
+	EXEC(src_side.qp.wr_complete());
+	EXEC(rdma_op.complete(src_side, dst_side));
+	
+	//SQ_DRAINED event happen due to data corruption in rdma write
+	EXEC(check_async_event(IBV_EVENT_SQ_DRAINED));
+	EXEC(src_mkey.check(MLX5DV_MKEY_SIG_BLOCK_BAD_GUARD, 0xec7d, 0x9916,
+			     src_block_size + src_sig_size - 1));
+	EXEC(src_side.qp.cancel_posted_wrs(2, 1));
+	EXEC(src_side.qp.modify_qp_to_rts());
+	EXEC(rdma_op.check_completion(this->src_side, IBV_WC_SEND));
+}
+
