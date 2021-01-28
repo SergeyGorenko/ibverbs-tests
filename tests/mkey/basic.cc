@@ -65,8 +65,8 @@ struct _mkey_test_basic : public mkey_test_base<Qp> {
 
 	virtual void SetUp() override {
 		mkey_test_base<Qp>::SetUp();
-		EXEC(src_mkey.init());
-		EXEC(dst_mkey.init());
+		INIT(src_mkey.init());
+		INIT(dst_mkey.init());
 	}
 
 	void fill_data() {
