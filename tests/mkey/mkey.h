@@ -1013,8 +1013,6 @@ struct mkey_test_base : public testing::Test, public ibvt_env {
 
 	virtual void SetUp() override {
 		INIT(ctx.init());
-		if (skip)
-			return;
 		INIT(src_side.init());
 		INIT(dst_side.init());
 		INIT(src_side.connect(dst_side));

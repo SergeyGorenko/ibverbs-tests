@@ -77,8 +77,8 @@ struct _mkey_test_sig_block : public mkey_test_base<Qp> {
 
 	virtual void SetUp() override {
 		mkey_test_base<Qp>::SetUp();
-		EXEC(src_mkey.init());
-		EXEC(dst_mkey.init());
+		INIT(src_mkey.init());
+		INIT(dst_mkey.init());
 	}
 
 	bool is_supported() {
@@ -895,4 +895,3 @@ TEST_F(mkey_test_sig_pipelining, pipeliningBasicFlow) {
 	EXEC(src_side.qp.modify_qp_to_rts());
 	EXEC(rdma_op.check_completion(this->src_side, IBV_WC_SEND));
 }
-
