@@ -56,23 +56,25 @@ template<typename SrcSigBlock, typename SrcValue,
 struct _mkey_test_sig_block : public mkey_test_base<Qp> {
 	static constexpr uint32_t src_block_size = SrcSigBlock::MkeyDomainType::BlockSizeType::block_size;
 	static constexpr uint32_t src_sig_size = SrcSigBlock::MkeyDomainType::SigType::sig_size;
-	static constexpr uint32_t src_data_size = NumBlocks * (src_block_size + src_sig_size);
+	static constexpr uint32_t src_ext_block_size = src_block_size + src_sig_size;
+	static constexpr uint32_t src_total_size = NumBlocks * src_ext_block_size;
 	static constexpr uint32_t dst_block_size = DstSigBlock::MkeyDomainType::BlockSizeType::block_size;
 	static constexpr uint32_t dst_sig_size = DstSigBlock::MkeyDomainType::SigType::sig_size;
-	static constexpr uint32_t dst_data_size = NumBlocks * (dst_block_size + dst_sig_size);
+	static constexpr uint32_t dst_ext_block_size = dst_block_size + dst_sig_size;
+	static constexpr uint32_t dst_total_size = NumBlocks * dst_ext_block_size;
 
 	struct mkey_dv_new<mkey_access_flags<>,
-			   mkey_layout_new_list_mrs<src_data_size>,
+			   mkey_layout_new_list_fixed_mrs<src_ext_block_size, NumBlocks>,
 			   SrcSigBlock> src_mkey;
 	struct mkey_dv_new<mkey_access_flags<>,
-			   mkey_layout_new_list_mrs<dst_data_size>,
+			   mkey_layout_new_list_fixed_mrs<dst_ext_block_size, NumBlocks>,
 			   DstSigBlock> dst_mkey;
 	RdmaOp rdma_op;
 
 	_mkey_test_sig_block() :
-		src_mkey(*this, this->src_side.pd, 1, MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT |
+		src_mkey(*this, this->src_side.pd, NumBlocks, MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT |
 			 MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE),
-		dst_mkey(*this, this->dst_side.pd, 1, MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT |
+		dst_mkey(*this, this->dst_side.pd, NumBlocks, MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT |
 			 MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE) {}
 
 	virtual void SetUp() override {
@@ -89,10 +91,10 @@ struct _mkey_test_sig_block : public mkey_test_base<Qp> {
 	}
 
 	void fill_data() {
-		uint8_t src_buf[src_data_size];
+		uint8_t src_buf[src_total_size];
 		uint8_t *buf = src_buf;
 
-		memset(src_buf, 0xA5, src_data_size);
+		memset(src_buf, 0xA5, src_total_size);
 		for (uint32_t i = 0; i < NumBlocks; ++i) {
 			buf += src_block_size;
 			if (src_sig_size) {
@@ -100,28 +102,28 @@ struct _mkey_test_sig_block : public mkey_test_base<Qp> {
 				buf += src_sig_size;
 			}
 		}
-		src_mkey.layout->set_data(src_buf, src_data_size);
+		src_mkey.layout->set_data(src_buf, src_total_size);
 	}
 
 	void corrupt_data(uint32_t offset) {
-		uint8_t src_buf[src_data_size];
+		uint8_t src_buf[src_total_size];
 		uint8_t *buf = src_buf;
-		src_mkey.layout->get_data(src_buf, src_data_size);
+		src_mkey.layout->get_data(src_buf, src_total_size);
 
 		for (uint32_t i = 0; i < NumBlocks; ++i) {
-			if (offset <= (i+1) * src_data_size) {
+			if (offset <= (i+1) * src_total_size) {
 				buf += offset;
 				*buf = ~(*buf);
 				break;
 			}
-			offset -= src_data_size;
-			buf += src_data_size;
+			offset -= src_total_size;
+			buf += src_total_size;
 		}
-		src_mkey.layout->set_data(src_buf, src_data_size);
+		src_mkey.layout->set_data(src_buf, src_total_size);
 	}
 
 	void check_data() {
-		uint8_t dst_buf[dst_data_size];
+		uint8_t dst_buf[dst_total_size];
 		uint8_t *buf = dst_buf;
 		uint8_t ref_block_buf[dst_block_size];
 		uint8_t ref_sig_buf[dst_sig_size];
@@ -129,7 +131,7 @@ struct _mkey_test_sig_block : public mkey_test_base<Qp> {
 		VERBS_TRACE("SrcBlockSize %u, SrcSigSize %u, DstBlockSize %u, DstSigSize %u\n",
 			    src_block_size, src_sig_size, dst_block_size, dst_sig_size);
 		memset(ref_block_buf, 0xA5, dst_block_size);
-		dst_mkey.layout->get_data(dst_buf, dst_data_size);
+		dst_mkey.layout->get_data(dst_buf, dst_total_size);
 		for (uint32_t i = 0; i < NumBlocks; ++i) {
 			ASSERT_EQ(0, memcmp(buf, ref_block_buf, dst_block_size));
 			buf += dst_block_size;
@@ -409,6 +411,41 @@ typedef testing::Types<
 
 	> mkey_test_list_ops;
 INSTANTIATE_TYPED_TEST_CASE_P(ops, mkey_test_sig_block, mkey_test_list_ops);
+
+template<typename T>
+using mkey_test_sig_block_stress_test = _mkey_test_sig_block<
+	mkey_sig_block<mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>,
+		     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>,
+	t10dif_sig<0xec7d,0x5678,0xf0debc9a>,
+	mkey_sig_block<mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>,
+		     mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default, mkey_sig_block_size_512>>,
+	t10dif_sig<0xec7d,0x5678,0xf0debc9a>,
+	T::NumSgl, typename T::Qp, typename T::RdmaOp>;
+
+TYPED_TEST_CASE_P(mkey_test_sig_block_stress_test);
+
+TYPED_TEST_P(mkey_test_sig_block_stress_test, basic) {
+	SIG_CHK_SUT();
+
+	for (int i = 0; i < 10000; i++) {
+		EXEC(fill_data());
+		EXEC(configure_mkeys());
+		EXEC(execute_rdma());
+	}
+}
+
+REGISTER_TYPED_TEST_CASE_P(mkey_test_sig_block_stress_test, basic);
+template<uint32_t T_NumSgl, typename T_Qp, typename T_RdmaOp = rdma_op_read>
+struct sig_stress_test_types {
+	static constexpr uint32_t NumSgl = T_NumSgl;
+	typedef T_Qp Qp;
+	typedef T_RdmaOp RdmaOp;
+};
+typedef testing::Types<
+	sig_stress_test_types<1, ibvt_qp_dv<16,16,16,16>, rdma_op_write>
+	> mkey_test_stress_test_ops;
+INSTANTIATE_TYPED_TEST_CASE_P(stress_test_ops, mkey_test_sig_block_stress_test, mkey_test_stress_test_ops);
+
 
 template<typename T>
 using mkey_test_sig_block_fence = _mkey_test_sig_block<
