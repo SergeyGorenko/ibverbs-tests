@@ -423,6 +423,30 @@ struct mkey_layout_new_list_mrs : public mkey_layout_new_list {
 	}
 };
 
+template <typename T, T V, size_t Index>
+struct deindex_v {
+	static constexpr T value = V;
+};
+
+template <typename T,
+	  T V,
+	  size_t N,
+	  template<T...> typename TT,
+	  typename Indices = std::make_index_sequence<N> >
+struct repeat_v;
+
+template <typename T,
+	  T V,
+	  size_t N,
+	  template<T...> typename TT,
+	  size_t... Indices>
+struct repeat_v<T, V, N, TT, std::index_sequence<Indices...>> {
+	using type = TT<deindex_v<T, V, Indices>::value...>;
+};
+
+template <size_t Size, size_t Count>
+using mkey_layout_new_list_fixed_mrs = typename repeat_v<size_t, Size, Count, mkey_layout_new_list_mrs>::type;
+
 struct mkey_layout_new_interleaved : public mkey_layout_new {
 	uint16_t repeat_count;
 	std::vector<struct mlx5dv_mr_interleaved> interleaved;
