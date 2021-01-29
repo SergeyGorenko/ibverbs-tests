@@ -52,7 +52,7 @@ template<typename SrcSigBlock, typename SrcValue,
 	 typename DstSigBlock, typename DstValue,
 	 uint32_t NumBlocks = 1, 
 	 typename Qp = ibvt_qp_dv<>, 
-	 typename RdmaOp = rdma_op_read<ibvt_qp_dv<>>>
+	 typename RdmaOp = rdma_op_read>
 struct _mkey_test_sig_block : public mkey_test_base<Qp> {
 	static constexpr uint32_t src_block_size = SrcSigBlock::MkeyDomainType::BlockSizeType::block_size;
 	static constexpr uint32_t src_sig_size = SrcSigBlock::MkeyDomainType::SigType::sig_size;
@@ -182,7 +182,7 @@ template<typename T_SrcSigBlock, typename T_SrcValue,
 	 typename T_DstSigBlock, typename T_DstValue,
 	 uint32_t T_NumBlocks = 1,
 	 typename T_Qp = ibvt_qp_dv<>, 
-	 template<typename> typename T_RdmaOp = rdma_op_read>
+	 typename T_RdmaOp = rdma_op_read>
 struct types {
 	typedef T_SrcSigBlock SrcSigBlock;
 	typedef T_SrcValue SrcValue;
@@ -190,7 +190,7 @@ struct types {
 	typedef T_DstValue DstValue;
 	static constexpr uint64_t NumBlocks = T_NumBlocks;
 	typedef T_Qp Qp;
-	typedef T_RdmaOp<T_Qp> RdmaOp;
+	typedef T_RdmaOp RdmaOp;
 };
 
 template<typename T>
@@ -444,9 +444,9 @@ TYPED_TEST_P(mkey_test_sig_block_fence, basic) {
 }
 
 REGISTER_TYPED_TEST_CASE_P(mkey_test_sig_block_fence, basic);
-template<template<typename> typename T_RdmaOp>
+template<typename T_RdmaOp>
 struct sig_fence_test_types {
-	typedef T_RdmaOp<ibvt_qp_dv<>> RdmaOp;
+	typedef T_RdmaOp RdmaOp;
 };
 typedef testing::Types<
 	sig_fence_test_types<rdma_op_write>,
@@ -558,7 +558,7 @@ typedef _mkey_test_sig_block<
 		   mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default,
 					 mkey_sig_block_size_512> >,
     t10dif_sig<0xec7d,0x5678,0xf0debc9a>, 2, ibvt_qp_dv<>,
-    rdma_op_write<ibvt_qp_dv<> > > mkey_test_t10dif_type1;
+    rdma_op_write> mkey_test_t10dif_type1;
 
 TEST_F(mkey_test_t10dif_type1, skipCheckRefTag) {
 
@@ -585,7 +585,7 @@ typedef _mkey_test_sig_block<
 		   mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default,
 					 mkey_sig_block_size_512> >,
     t10dif_sig<0xec7d,0x5678,0xf0debc9a>, 2, ibvt_qp_dv<>,
-    rdma_op_write<ibvt_qp_dv<> > > mkey_test_t10dif_type3;
+    rdma_op_write> mkey_test_t10dif_type3;
 
 TEST_F(mkey_test_t10dif_type3, skipCheckRefTag) {
 
@@ -613,7 +613,7 @@ typedef _mkey_test_sig_block<
 					 mkey_sig_block_size_512>,0>,
     //APP Tag 0x5678 is regenerated
     t10dif_sig<0xec7d,0x5678,0xf0debc9a>, 1, ibvt_qp_dv<>,
-    rdma_op_write<ibvt_qp_dv<> > > mkey_test_different_app_tag_byte0_rdma_write;
+    rdma_op_write> mkey_test_different_app_tag_byte0_rdma_write;
 
 TEST_F(mkey_test_different_app_tag_byte0_rdma_write, corruptByte1) {
 
@@ -687,7 +687,7 @@ typedef _mkey_test_sig_block<
 		   mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default,
 					 mkey_sig_block_size_512>,0>,
     t10dif_sig<0xec7d,0xA978,0xf0debc9a>, 1, ibvt_qp_dv<>,
-    rdma_op_write<ibvt_qp_dv<> > > mkey_test_same_app_tag_byte0_rdma_read;
+    rdma_op_write> mkey_test_same_app_tag_byte0_rdma_read;
 
 TEST_F(mkey_test_same_app_tag_byte0_rdma_read, corruptByte1) {
 
@@ -751,7 +751,7 @@ typedef _mkey_test_sig_block<
 		   mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default,
 					 mkey_sig_block_size_512> >,
     t10dif_sig<0xec7d,0x5678,0xf0debc9a>, 1, ibvt_qp_dv<>,
-    rdma_op_write<ibvt_qp_dv<>>> mkey_test_sig_corrupt;
+    rdma_op_write> mkey_test_sig_corrupt;
 
 TEST_F(mkey_test_sig_corrupt, guardError) {
 
@@ -804,7 +804,7 @@ typedef _mkey_test_sig_block<
 		   mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default,
 					 mkey_sig_block_size_512> >,
     t10dif_sig<0xec7d,0x5678,0xf0debc9a>, 1, ibvt_qp_dv<>,
-    rdma_op_write<ibvt_qp_dv<> > > mkey_test_sig_incorrect_ref_tag;
+    rdma_op_write> mkey_test_sig_incorrect_ref_tag;
 TEST_F(mkey_test_sig_incorrect_ref_tag, refTagError) {
 
 	EXEC(fill_data());
@@ -824,7 +824,7 @@ typedef _mkey_test_sig_block<
 	mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512>,
 	mkey_sig_block_domain<mkey_sig_crc32ieee, mkey_sig_block_size_512> >,
     crc32_sig<0x699ACA21>, 1, ibvt_qp_dv<>,
-    rdma_op_write<ibvt_qp_dv<> > > mkey_test_crc_sig_corrupt;
+    rdma_op_write> mkey_test_crc_sig_corrupt;
 
 TEST_F(mkey_test_crc_sig_corrupt, corruptData) {
 
@@ -860,7 +860,7 @@ typedef _mkey_test_sig_block<
 		   mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default,
 					 mkey_sig_block_size_512> >,
     sig_none, 1, ibvt_qp_dv<128,16,32,4,512,true>,
-    rdma_op_write<ibvt_qp_dv<128,16,32,4,512,true>>> mkey_test_sig_pipelining;
+    rdma_op_write> mkey_test_sig_pipelining;
 
 TEST_F(mkey_test_sig_pipelining, pipeliningBasicFlow) {
 	SIG_CHK_SUT();
@@ -868,7 +868,7 @@ TEST_F(mkey_test_sig_pipelining, pipeliningBasicFlow) {
 	const size_t SEND_SIZE = 64;
 	ibvt_mr send_mr(env, this->src_side.pd, SEND_SIZE); // for send data
 	ibvt_mr recv_mr(env, this->dst_side.pd, SEND_SIZE);
-	rdma_op_send<ibvt_qp_dv<128,16,32,4,512,true>> send_op;
+	rdma_op_send send_op;
 
 	send_mr.init();
 	send_mr.fill();

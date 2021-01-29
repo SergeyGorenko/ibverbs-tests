@@ -116,10 +116,10 @@ struct _mkey_test_basic : public mkey_test_base<Qp> {
 	}
 };
 
-template<typename T_Qp, template<typename> typename T_RdmaOp, typename T_Mkey, uint16_t T_MaxEntries = 1>
+template<typename T_Qp, typename T_RdmaOp, typename T_Mkey, uint16_t T_MaxEntries = 1>
 struct types {
 	typedef T_Qp Qp;
-	typedef T_RdmaOp<T_Qp> RdmaOp;
+	typedef T_RdmaOp RdmaOp;
 	typedef T_Mkey Mkey;
 	static constexpr uint64_t MaxEntries = T_MaxEntries;
 };
@@ -150,7 +150,7 @@ TYPED_TEST_P(mkey_test_basic, non_signaled) {
 	auto &dst_side = this->dst_side;
 	int wr_flags;
         bool is_rdma_read = typeid(this->rdma_op) ==
-                            typeid(rdma_op_read<typename TypeParam::Qp>);
+                            typeid(rdma_op_read);
 
         EXEC(fill_data());
 	wr_flags = IBV_SEND_INLINE;
@@ -210,7 +210,7 @@ TEST_F(mkey_test_dv_custom, basicAttr_badAccessFlags) {
 		    mkey_layout_new_list_mrs<DATA_SIZE>> dst_mkey(*this,
 								  this->dst_side.pd,
 								  1, MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT);
-	rdma_op_read<ibvt_qp_dv<>> rdma_op;
+	rdma_op_read rdma_op;
 
 	EXECL(src_mkey.init());
 	EXECL(dst_mkey.init());
