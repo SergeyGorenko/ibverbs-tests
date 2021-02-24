@@ -172,7 +172,7 @@ struct ibvt_qp_dv : public ibvt_qp_rc {
 		struct ibv_qp_ex *qpx = ibv_qp_to_qp_ex(qp);
 
 		dv_qp = mlx5dv_qp_ex_from_ibv_qp_ex(qpx);
-		int ret = mlx5dv_qp_cancel_posted_wrs(dv_qp, wr_id);
+		int ret = mlx5dv_qp_cancel_posted_send_wrs(dv_qp, wr_id);
 		ASSERT_EQ(wr_num, ret);
 	}
 
@@ -562,22 +562,6 @@ struct mkey_layout_new_interleaved_mrs : public mkey_layout_new_interleaved {
 	}
 };
 
-struct mkey_sig {
-	virtual void set_sig(struct mlx5dv_sig_block_domain &domain) = 0;
-};
-
-struct mkey_sig_none : public mkey_sig {
-	static constexpr uint32_t sig_size = 0;
-
-	virtual void set_sig(struct mlx5dv_sig_block_domain &domain) override {
-		domain.sig_type = MLX5DV_SIG_TYPE_NONE;
-	}
-
-	static bool is_supported(struct mlx5dv_context &attr) {
-		return true;
-	}
-};
-
 template<enum mlx5dv_sig_t10dif_bg_type BgType, enum mlx5dv_sig_t10dif_bg_caps BgTypeCaps>
 struct mkey_sig_t10dif_type {
 	static const enum mlx5dv_sig_t10dif_bg_type mlx5_t10dif_type = BgType;
@@ -588,11 +572,11 @@ typedef mkey_sig_t10dif_type<MLX5DV_SIG_T10DIF_CRC, MLX5DV_SIG_T10DIF_BG_CAP_CRC
 typedef mkey_sig_t10dif_type<MLX5DV_SIG_T10DIF_CSUM, MLX5DV_SIG_T10DIF_BG_CAP_CSUM> mkey_sig_t10dif_csum;
 
 template<typename BgType, uint16_t Bg, uint16_t AppTag, uint32_t RefTag>
-struct mkey_sig_t10dif_type1 : public mkey_sig {
+struct mkey_sig_t10dif_type1 {
 	static constexpr uint32_t sig_size = 8;
 	struct mlx5dv_sig_t10dif dif;
 
-	virtual void set_sig(struct mlx5dv_sig_block_domain &domain) override {
+	void set_sig(struct mlx5dv_sig_block_domain &domain) {
 		domain.sig_type = MLX5DV_SIG_TYPE_T10DIF;
 		dif.bg_type = BgType::mlx5_t10dif_type;
 		dif.bg = Bg;
@@ -610,18 +594,18 @@ struct mkey_sig_t10dif_type1 : public mkey_sig {
 };
 
 template<typename BgType, uint16_t Bg, uint16_t AppTag, uint32_t RefTag>
-struct mkey_sig_t10dif_type3 : public mkey_sig {
+struct mkey_sig_t10dif_type3 {
 	static constexpr uint32_t sig_size = 8;
 	struct mlx5dv_sig_t10dif dif;
 
-	virtual void set_sig(struct mlx5dv_sig_block_domain &domain) override {
+	void set_sig(struct mlx5dv_sig_block_domain &domain) {
 		domain.sig_type = MLX5DV_SIG_TYPE_T10DIF;
 		dif.bg_type = BgType::mlx5_t10dif_type;
 		dif.bg = Bg;
 		dif.app_tag = AppTag;
 		dif.ref_tag = RefTag;
 		dif.flags = MLX5DV_SIG_T10DIF_FLAG_APP_ESCAPE |
-			    MLX5DV_SIG_T10DIF_FLAG_REF_ESCAPE;
+			    MLX5DV_SIG_T10DIF_FLAG_APP_REF_ESCAPE;
 		domain.sig.dif = &dif;
 	}
 
@@ -642,14 +626,14 @@ typedef mkey_sig_crc_type<MLX5DV_SIG_CRC_TYPE_CRC32C, MLX5DV_SIG_CRC_TYPE_CAP_CR
 typedef mkey_sig_crc_type<MLX5DV_SIG_CRC_TYPE_CRC64, MLX5DV_SIG_CRC_TYPE_CAP_CRC64> mkey_sig_crc_type_crc64;
 
 template<typename CrcType, uint32_t Seed>
-struct mkey_sig_crc32 : public mkey_sig {
+struct mkey_sig_crc32 {
 	static constexpr uint32_t sig_size = 4;
 	struct mlx5dv_sig_crc crc;
 
-	virtual void set_sig(struct mlx5dv_sig_block_domain &domain) override {
+	void set_sig(struct mlx5dv_sig_block_domain &domain) {
 		domain.sig_type = MLX5DV_SIG_TYPE_CRC;
 		crc.type = CrcType::mlx5_crc_type;
-		crc.seed.crc32 = Seed;
+		crc.seed = Seed;
 		domain.sig.crc = &crc;
 	}
 
@@ -660,14 +644,14 @@ struct mkey_sig_crc32 : public mkey_sig {
 };
 
 template<typename CrcType, uint64_t Seed>
-struct mkey_sig_crc64 : public mkey_sig {
+struct mkey_sig_crc64 {
 	static constexpr uint32_t sig_size = 8;
 	struct mlx5dv_sig_crc crc;
 
-	virtual void set_sig(struct mlx5dv_sig_block_domain &domain) override {
+	void set_sig(struct mlx5dv_sig_block_domain &domain) {
 		domain.sig_type = MLX5DV_SIG_TYPE_CRC;
 		crc.type = CrcType::mlx5_crc_type;
-		crc.seed.crc64 = Seed;
+		crc.seed = Seed;
 		domain.sig.crc = &crc;
 	}
 
@@ -677,21 +661,20 @@ struct mkey_sig_crc64 : public mkey_sig {
 	}
 };
 
-template<enum mlx5dv_sig_block_size Mlx5BlockSize,
-	 enum mlx5dv_sig_block_size_caps Mlx5BlockSizeCaps,
+template<enum mlx5dv_block_size Mlx5BlockSize,
+	 enum mlx5dv_block_size_caps Mlx5BlockSizeCaps,
 	 uint32_t BlockSize>
-struct mkey_sig_block_size {
-	static const enum mlx5dv_sig_block_size mlx5_block_size = Mlx5BlockSize;
-	static const enum mlx5dv_sig_block_size_caps mlx5_block_size_caps = Mlx5BlockSizeCaps;
+struct mkey_block_size {
+	static const enum mlx5dv_block_size mlx5_block_size = Mlx5BlockSize;
+	static const enum mlx5dv_block_size_caps mlx5_block_size_caps = Mlx5BlockSizeCaps;
 	static const uint32_t block_size = BlockSize;
 };
 
-typedef mkey_sig_block_size<MLX5DV_SIG_BLOCK_SIZE_512, MLX5DV_SIG_BLOCK_SIZE_CAP_512, 512> mkey_sig_block_size_512;
-typedef mkey_sig_block_size<MLX5DV_SIG_BLOCK_SIZE_520, MLX5DV_SIG_BLOCK_SIZE_CAP_520, 520> mkey_sig_block_size_520;
-typedef mkey_sig_block_size<MLX5DV_SIG_BLOCK_SIZE_4048, MLX5DV_SIG_BLOCK_SIZE_CAP_4048, 4048> mkey_sig_block_size_4048;
-typedef mkey_sig_block_size<MLX5DV_SIG_BLOCK_SIZE_4096, MLX5DV_SIG_BLOCK_SIZE_CAP_4096, 4096> mkey_sig_block_size_4096;
-typedef mkey_sig_block_size<MLX5DV_SIG_BLOCK_SIZE_4160, MLX5DV_SIG_BLOCK_SIZE_CAP_4160, 4160> mkey_sig_block_size_4160;
-typedef mkey_sig_block_size<MLX5DV_SIG_BLOCK_SIZE_1M, MLX5DV_SIG_BLOCK_SIZE_CAP_1M, 1024*1024> mkey_sig_block_size_1M;
+typedef mkey_block_size<MLX5DV_BLOCK_SIZE_512, MLX5DV_BLOCK_SIZE_CAP_512, 512> mkey_block_size_512;
+typedef mkey_block_size<MLX5DV_BLOCK_SIZE_520, MLX5DV_BLOCK_SIZE_CAP_520, 520> mkey_block_size_520;
+typedef mkey_block_size<MLX5DV_BLOCK_SIZE_4048, MLX5DV_BLOCK_SIZE_CAP_4048, 4048> mkey_block_size_4048;
+typedef mkey_block_size<MLX5DV_BLOCK_SIZE_4096, MLX5DV_BLOCK_SIZE_CAP_4096, 4096> mkey_block_size_4096;
+typedef mkey_block_size<MLX5DV_BLOCK_SIZE_4160, MLX5DV_BLOCK_SIZE_CAP_4160, 4160> mkey_block_size_4160;
 
 template<typename Sig, typename BlockSize>
 struct mkey_sig_block_domain {
@@ -713,12 +696,27 @@ struct mkey_sig_block_domain {
 	}
 };
 
+struct mkey_sig_block_domain_none {
+	typedef mkey_block_size_512 BlockSizeType;
+	typedef struct mkey_sig_none {
+		static constexpr uint32_t sig_size = 0;
+	} SigType;
+
+	void set_domain(const mlx5dv_sig_block_domain **d) {
+		*d = NULL;
+	}
+
+	static bool is_supported(struct mlx5dv_context &attr) {
+		return true;
+	}
+};
+
 #define MLX5DV_SIG_CHECK_T10DIF_APPTAG_BYTE1 0x20
 #define MLX5DV_SIG_CHECK_T10DIF_APPTAG_BYTE0 0x10
 
-template<typename MkeyDomain, typename WireDomain, uint8_t CheckMask = 0xFF>
+template<typename MemDomain, typename WireDomain, uint8_t CheckMask = 0xFF>
 struct mkey_sig_block : public mkey_setter {
-	typedef MkeyDomain MkeyDomainType;
+	typedef MemDomain MemDomainType;
 	typedef WireDomain WireDomainType;
 
 	mkey_sig_block(ibvt_env &env, ibvt_pd &pd) {}
@@ -728,17 +726,17 @@ struct mkey_sig_block : public mkey_setter {
 		struct mlx5dv_qp_ex *mqp = mlx5dv_qp_ex_from_ibv_qp_ex(qpx);
 		struct mlx5dv_sig_block_attr attr = {};
 
-		MkeyDomain mkey;
+		MemDomain mem;
 		WireDomain wire;
-		mkey.set_domain(&attr.mkey);
+		mem.set_domain(&attr.mem);
 		wire.set_domain(&attr.wire);
 		attr.check_mask = CheckMask;
 		mlx5dv_wr_set_mkey_sig_block(mqp, &attr);
 	}
 
 	virtual size_t adjust_length(size_t length) {
-		size_t mkey_num_blocks = length / (MkeyDomainType::BlockSizeType::block_size + MkeyDomainType::SigType::sig_size);
-		size_t data_length = length - mkey_num_blocks * MkeyDomainType::SigType::sig_size;
+		size_t mem_num_blocks = length / (MemDomainType::BlockSizeType::block_size + MemDomainType::SigType::sig_size);
+		size_t data_length = length - mem_num_blocks * MemDomainType::SigType::sig_size;
 		size_t wire_num_blocks = data_length / WireDomainType::BlockSizeType::block_size;
 		size_t wire_length = data_length + wire_num_blocks * WireDomainType::SigType::sig_size;
 		return wire_length;
@@ -746,7 +744,7 @@ struct mkey_sig_block : public mkey_setter {
 
 	static bool is_supported(struct mlx5dv_context &attr) {
 		return attr.comp_mask & MLX5DV_CONTEXT_MASK_SIGNATURE_OFFLOAD &&
-			MkeyDomainType::is_supported(attr) &&
+			MemDomainType::is_supported(attr) &&
 			WireDomainType::is_supported(attr);
 	}
 };
@@ -761,7 +759,6 @@ typedef mkey_sig_t10dif_type3<mkey_sig_t10dif_crc, 0xffff, 0x5678, 0xf0debc9a> m
 typedef mkey_sig_t10dif_type1<mkey_sig_t10dif_csum, 0xffff, 0x5678, 0xf0debc9a> mkey_sig_t10dif_csum_type1_default;
 typedef mkey_sig_t10dif_type3<mkey_sig_t10dif_csum, 0xffff, 0x5678, 0xf0debc9a> mkey_sig_t10dif_csum_type3_default;
 
-typedef mkey_sig_block_domain<mkey_sig_none, mkey_sig_block_size_512> mkey_sig_block_domain_none;
 typedef mkey_sig_block<mkey_sig_block_domain_none, mkey_sig_block_domain_none> mkey_sig_block_none;
 
 template<typename ...Setters>
@@ -817,8 +814,9 @@ struct mkey_dv_new : public mkey_dv {
 	virtual void wr_configure(ibvt_qp &qp) override {
 		struct ibv_qp_ex *qpx = ibv_qp_to_qp_ex(qp.qp);
 		struct mlx5dv_qp_ex *mqp = mlx5dv_qp_ex_from_ibv_qp_ex(qpx);
+		struct mlx5dv_mkey_conf_attr attr = {};
 
-		EXECL(mlx5dv_wr_mkey_configure(mqp, mlx5_mkey, 0));
+		EXECL(mlx5dv_wr_mkey_configure(mqp, mlx5_mkey, setters.size(), &attr));
 		for (auto s : setters) {
 			EXECL(s->wr_set(qp));
 		}
