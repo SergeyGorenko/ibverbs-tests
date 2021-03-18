@@ -585,6 +585,7 @@ struct mkey_sig_t10dif_type1 {
 		dif.flags = MLX5DV_SIG_T10DIF_FLAG_REF_REMAP |
 			    MLX5DV_SIG_T10DIF_FLAG_APP_ESCAPE;
 		domain.sig.dif = &dif;
+		domain.comp_mask = 0;
 	}
 
 	static bool is_supported(struct mlx5dv_context &attr) {
@@ -607,6 +608,7 @@ struct mkey_sig_t10dif_type3 {
 		dif.flags = MLX5DV_SIG_T10DIF_FLAG_APP_ESCAPE |
 			    MLX5DV_SIG_T10DIF_FLAG_APP_REF_ESCAPE;
 		domain.sig.dif = &dif;
+		domain.comp_mask = 0;
 	}
 
 	static bool is_supported(struct mlx5dv_context &attr) {
@@ -635,6 +637,7 @@ struct mkey_sig_crc32 {
 		crc.type = CrcType::mlx5_crc_type;
 		crc.seed = Seed;
 		domain.sig.crc = &crc;
+		domain.comp_mask = 0;
 	}
 
 	static bool is_supported(struct mlx5dv_context &attr) {
@@ -653,6 +656,7 @@ struct mkey_sig_crc64 {
 		crc.type = CrcType::mlx5_crc_type;
 		crc.seed = Seed;
 		domain.sig.crc = &crc;
+		domain.comp_mask = 0;
 	}
 
 	static bool is_supported(struct mlx5dv_context &attr) {
