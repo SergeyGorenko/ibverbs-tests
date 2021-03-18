@@ -181,13 +181,9 @@ struct ibvt_qp_dv : public ibvt_qp_rc {
 
 		memset(&attr, 0, sizeof(attr));
 
-		attr.qp_state      = IBV_QPS_RTS;
-		attr.timeout       = 14;
-		attr.retry_cnt     = 7;
-		attr.rnr_retry     = 7;
-		attr.sq_psn        = 0;
-		attr.max_rd_atomic = 1;
-		DO(ibv_modify_qp(qp, &attr, IBV_QP_STATE));
+		attr.qp_state = IBV_QPS_RTS;
+		attr.cur_qp_state = IBV_QPS_SQD;
+		DO(ibv_modify_qp(qp, &attr, IBV_QP_STATE | IBV_QP_CUR_STATE));
 	}
 };
 
