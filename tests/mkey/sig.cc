@@ -647,7 +647,7 @@ typedef _mkey_test_sig_block<
 			      mkey_block_size_512>,
 	mkey_sig_block_domain<mkey_sig_t10dif_type1<mkey_sig_t10dif_crc, 0xffff,
 						    0x1234, 0xf0debc9a>,
-					 mkey_block_size_512>,0>,
+					 mkey_block_size_512> >,
     //APP Tag 0x5678 is regenerated
     t10dif_sig<0xec7d,0x5678,0xf0debc9a>, 1, ibvt_qp_dv<>,
     rdma_op_write> mkey_test_different_app_tag_byte0_rdma_write;
@@ -722,7 +722,7 @@ typedef _mkey_test_sig_block<
     mkey_sig_block<mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default,
 					 mkey_block_size_512>,
 		   mkey_sig_block_domain<mkey_sig_t10dif_crc_type1_default,
-					 mkey_block_size_512>,0>,
+					 mkey_block_size_512> >,
     t10dif_sig<0xec7d,0xA978,0xf0debc9a>, 1, ibvt_qp_dv<>,
     rdma_op_write> mkey_test_same_app_tag_byte0_rdma_read;
 
