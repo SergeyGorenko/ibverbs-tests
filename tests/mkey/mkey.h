@@ -621,7 +621,7 @@ struct mkey_sig_crc_type {
 
 typedef mkey_sig_crc_type<MLX5DV_SIG_CRC_TYPE_CRC32, MLX5DV_SIG_CRC_TYPE_CAP_CRC32> mkey_sig_crc_type_crc32;
 typedef mkey_sig_crc_type<MLX5DV_SIG_CRC_TYPE_CRC32C, MLX5DV_SIG_CRC_TYPE_CAP_CRC32C> mkey_sig_crc_type_crc32c;
-typedef mkey_sig_crc_type<MLX5DV_SIG_CRC_TYPE_CRC64, MLX5DV_SIG_CRC_TYPE_CAP_CRC64> mkey_sig_crc_type_crc64;
+typedef mkey_sig_crc_type<MLX5DV_SIG_CRC_TYPE_CRC64_XP10, MLX5DV_SIG_CRC_TYPE_CAP_CRC64_XP10> mkey_sig_crc_type_crc64xp10;
 
 template<typename CrcType, uint32_t Seed>
 struct mkey_sig_crc32 {
@@ -752,7 +752,7 @@ struct mkey_sig_block : public mkey_setter {
 // Some helper types
 typedef mkey_sig_crc32<mkey_sig_crc_type_crc32, 0xFFFFFFFF> mkey_sig_crc32ieee;
 typedef mkey_sig_crc32<mkey_sig_crc_type_crc32c, 0xFFFFFFFF> mkey_sig_crc32c;
-typedef mkey_sig_crc64<mkey_sig_crc_type_crc64, 0xFFFFFFFFFFFFFFFF> mkey_sig_crc64xp10;
+typedef mkey_sig_crc64<mkey_sig_crc_type_crc64xp10, 0xFFFFFFFFFFFFFFFF> mkey_sig_crc64xp10;
 typedef mkey_sig_t10dif_type1<mkey_sig_t10dif_crc, 0xffff, 0x5678, 0xf0debc9a> mkey_sig_t10dif_crc_type1_default;
 typedef mkey_sig_t10dif_type3<mkey_sig_t10dif_crc, 0xffff, 0x5678, 0xf0debc9a> mkey_sig_t10dif_crc_type3_default;
 
