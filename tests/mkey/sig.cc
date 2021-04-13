@@ -508,7 +508,7 @@ TEST_F(mkey_test_sig_custom, noBlockSigAttr) {
 	EXEC(src_side.qp.wr_flags(IBV_SEND_SIGNALED | IBV_SEND_INLINE));
 	EXEC(src_side.qp.wr_start());
 	EXECL(src_mkey.wr_configure(this->src_side.qp));
-	EXEC(src_side.qp.wr_complete(EOPNOTSUPP));
+	EXEC(src_side.qp.wr_complete(EINVAL));
 }
 
 typedef mkey_test_base<ibvt_qp_dv<2,16,32,4,512>> mkey_test_sig_max_send_wr;
