@@ -34,6 +34,8 @@
 #include <stdint.h>
 #include <endian.h>
 
+#if HAVE_DECL_MLX5DV_WR_MKEY_CONFIGURE
+
 struct dif {
 	uint16_t guard;
 	uint16_t app_tag;
@@ -87,6 +89,7 @@ template <uint64_t Sig> struct crc64_sig {
 		*(uint64_t *)buf = htobe64(sig);
 	}
 };
+#endif /* HAVE_DECL_MLX5DV_WR_MKEY_CONFIGURE */
 
 template<uint32_t MaxSendWr = 128, uint32_t MaxSendSge = 16,
 	 uint32_t MaxRecvWr = 32, uint32_t MaxRecvSge = 4,
@@ -111,12 +114,16 @@ struct ibvt_qp_dv : public ibvt_qp_rc {
 
 	virtual void init_dv_attr(struct mlx5dv_qp_init_attr &dv_attr) {
 		dv_attr.comp_mask = MLX5DV_QP_INIT_ATTR_MASK_SEND_OPS_FLAGS;
-		dv_attr.send_ops_flags = MLX5DV_QP_EX_WITH_MKEY_CONFIGURE;
+		dv_attr.send_ops_flags = MLX5DV_QP_EX_WITH_MR_INTERLEAVED |
+					 MLX5DV_QP_EX_WITH_MR_LIST;
+#if HAVE_DECL_MLX5DV_WR_MKEY_CONFIGURE
+		dv_attr.send_ops_flags |= MLX5DV_QP_EX_WITH_MKEY_CONFIGURE;
 		if (Pipelining) {
 			dv_attr.comp_mask |=
 			    MLX5DV_QP_INIT_ATTR_MASK_QP_CREATE_FLAGS;
 			dv_attr.create_flags = MLX5DV_QP_CREATE_SIG_PIPELINING;
 		}
+#endif /* HAVE_DECL_MLX5DV_WR_MKEY_CONFIGURE */
 	}
 
 	virtual void init() override {
@@ -167,6 +174,7 @@ struct ibvt_qp_dv : public ibvt_qp_rc {
 		ibv_wr_set_sge_list(qpx, 1, &local_sge);
 	}
 
+#if HAVE_DECL_MLX5DV_WR_MKEY_CONFIGURE
 	virtual void cancel_posted_wrs(uint64_t wr_id, int wr_num) {
 		struct mlx5dv_qp_ex *dv_qp;
 		struct ibv_qp_ex *qpx = ibv_qp_to_qp_ex(qp);
@@ -175,6 +183,7 @@ struct ibvt_qp_dv : public ibvt_qp_rc {
 		int ret = mlx5dv_qp_cancel_posted_send_wrs(dv_qp, wr_id);
 		ASSERT_EQ(wr_num, ret);
 	}
+#endif /* HAVE_DECL_MLX5DV_WR_MKEY_CONFIGURE */
 
 	virtual void modify_qp_to_rts() {
 		struct ibv_qp_attr attr;
@@ -269,6 +278,7 @@ struct mkey_dv : public mkey {
 		return mlx5_mkey->lkey;
 	}
 
+#if HAVE_DECL_MLX5DV_WR_MKEY_CONFIGURE
 	virtual void check() override {
 		struct mlx5dv_mkey_err err;
 		DO(mlx5dv_mkey_check(mlx5_mkey, &err));
@@ -291,8 +301,20 @@ struct mkey_dv : public mkey {
 		ASSERT_EQ(expected, sig_err.expected_value);
 		ASSERT_EQ(offset, sig_err.offset);
 	}
+#else
+	virtual void check() override {
+	}
+
+	virtual void check(int err_type) override {
+	}
+
+	virtual void check(int err_type, uint64_t actual, uint64_t expected,
+			   uint64_t offset) override {
+	}
+#endif /* HAVE_DECL_MLX5DV_WR_MKEY_CONFIGURE */
 };
 
+#if HAVE_DECL_MLX5DV_WR_MKEY_CONFIGURE
 struct mkey_setter {
 	virtual ~mkey_setter() = default;
 	virtual void init() {};
@@ -834,6 +856,7 @@ struct mkey_dv_new : public mkey_dv {
 		if (layout) layout->dump(offset, length, pfx);
 	}
 };
+#endif /* HAVE_DECL_MLX5DV_WR_MKEY_CONFIGURE */
 
 template<typename QP>
 struct mkey_test_side : public ibvt_obj {

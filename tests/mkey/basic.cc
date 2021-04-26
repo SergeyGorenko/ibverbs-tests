@@ -58,10 +58,16 @@ struct _mkey_test_basic : public mkey_test_base<Qp> {
 	RdmaOp rdma_op;
 
 	_mkey_test_basic() :
-		src_mkey(*this, this->src_side.pd, MaxEntries, MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT |
-			 MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE),
-		dst_mkey(*this, this->dst_side.pd, MaxEntries, MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT |
-			 MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE) {}
+		src_mkey(*this, this->src_side.pd, MaxEntries, MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT
+#if HAVE_DECL_MLX5DV_WR_MKEY_CONFIGURE
+			 | MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE
+#endif
+			 ),
+		dst_mkey(*this, this->dst_side.pd, MaxEntries, MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT
+#if HAVE_DECL_MLX5DV_WR_MKEY_CONFIGURE
+			 | MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE
+#endif
+			 ) {}
 
 	virtual void SetUp() override {
 		mkey_test_base<Qp>::SetUp();
@@ -176,21 +182,26 @@ TYPED_TEST_P(mkey_test_basic, non_signaled) {
 
 REGISTER_TYPED_TEST_CASE_P(mkey_test_basic, basic, non_signaled);
 
+#if HAVE_DECL_MLX5DV_WR_MKEY_CONFIGURE
 template<typename ...Setters>
 using mkey_dv_new_basic = mkey_dv_new<mkey_access_flags<>, Setters...>;
+#endif
 
 typedef testing::Types<
+#if HAVE_DECL_MLX5DV_WR_MKEY_CONFIGURE
 	types<ibvt_qp_dv<>, rdma_op_read, mkey_dv_new_basic<mkey_layout_new_list_mrs<DATA_SIZE>>>,
 	types<ibvt_qp_dv<>, rdma_op_read, mkey_dv_new_basic<mkey_layout_new_list_mrs<DATA_SIZE/4, DATA_SIZE/4, DATA_SIZE/4, DATA_SIZE/4>>>,
 	types<ibvt_qp_dv<>, rdma_op_read, mkey_dv_new_basic<mkey_layout_new_list_mrs<DATA_SIZE/8, DATA_SIZE/8, DATA_SIZE/8, DATA_SIZE/8, DATA_SIZE/8, DATA_SIZE/8, DATA_SIZE/8, DATA_SIZE/8>>, 8>,
 	types<ibvt_qp_dv<>, rdma_op_read, mkey_dv_new_basic<mkey_layout_new_interleaved_mrs<1, DATA_SIZE, 0>>>,
 	types<ibvt_qp_dv<>, rdma_op_read, mkey_dv_new_basic<mkey_layout_new_interleaved_mrs<2, DATA_SIZE/4, 8, 4, 0>>>,
 	types<ibvt_qp_dv<>, rdma_op_read, mkey_dv_new_basic<mkey_layout_new_interleaved_mrs<4, DATA_SIZE/32, 8, 4, 0, DATA_SIZE/32, 8, 4, 0, DATA_SIZE/32, 8, 4, 0, DATA_SIZE/32, 8, 4, 0>>, 9>,
+#endif /* HAVE_DECL_MLX5DV_WR_MKEY_CONFIGURE */
 	types<ibvt_qp_dv<>, rdma_op_read, mkey_dv_old<mkey_layout_old_list_mrs<DATA_SIZE>>>,
 	types<ibvt_qp_dv<>, rdma_op_read, mkey_dv_old<mkey_layout_old_interleaved_mrs<1, DATA_SIZE, 0>>>
 	> mkey_test_list_layouts;
 INSTANTIATE_TYPED_TEST_CASE_P(layouts, mkey_test_basic, mkey_test_list_layouts);
 
+#if HAVE_DECL_MLX5DV_WR_MKEY_CONFIGURE
 typedef testing::Types<
 	types<ibvt_qp_dv<>, rdma_op_read, mkey_dv_new_basic<mkey_layout_new_list_mrs<DATA_SIZE>>>,
 	types<ibvt_qp_dv<>, rdma_op_write, mkey_dv_new_basic<mkey_layout_new_list_mrs<DATA_SIZE>>>,
@@ -258,3 +269,4 @@ TEST_F(mkey_test_dv_custom, basicAttr_interleavedLayoutEntriesOverflow) {
 	EXECL(src_mkey.wr_configure(this->src_side.qp));
 	EXEC(src_side.qp.wr_complete(ENOMEM));
 }
+#endif /* HAVE_DECL_MLX5DV_WR_MKEY_CONFIGURE */

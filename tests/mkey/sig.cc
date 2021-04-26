@@ -30,6 +30,8 @@
 #include "config.h"
 #endif
 
+#if HAVE_DECL_MLX5DV_WR_MKEY_CONFIGURE
+
 #define __STDC_LIMIT_MACROS
 #include <inttypes.h>
 #include <signal.h>
@@ -932,3 +934,5 @@ TEST_F(mkey_test_sig_pipelining, pipeliningBasicFlow) {
 	EXEC(src_side.qp.modify_qp_to_rts());
 	EXEC(rdma_op.check_completion(this->src_side, IBV_WC_SEND));
 }
+
+#endif /* HAVE_DECL_MLX5DV_WR_MKEY_CONFIGURE */
