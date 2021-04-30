@@ -736,7 +736,10 @@ struct mkey_sig_block_domain_none {
 #define MLX5DV_SIG_CHECK_T10DIF_APPTAG_BYTE1 0x20
 #define MLX5DV_SIG_CHECK_T10DIF_APPTAG_BYTE0 0x10
 
-template<typename MemDomain, typename WireDomain, uint8_t CheckMask = 0xFF>
+template<typename MemDomain, typename WireDomain,
+	 uint8_t CheckMask = 0xFF,
+	 uint16_t Flags = 0,
+	 uint8_t CopyMask = 0xFF>
 struct mkey_sig_block : public mkey_setter {
 	typedef MemDomain MemDomainType;
 	typedef WireDomain WireDomainType;
@@ -752,7 +755,9 @@ struct mkey_sig_block : public mkey_setter {
 		WireDomain wire;
 		mem.set_domain(&attr.mem);
 		wire.set_domain(&attr.wire);
+		attr.flags = Flags;
 		attr.check_mask = CheckMask;
+		attr.copy_mask = CopyMask;
 		mlx5dv_wr_set_mkey_sig_block(mqp, &attr);
 	}
 
