@@ -976,4 +976,24 @@ TEST_F(mkey_test_sig_custom, copyMaskNotExpected) {
 	EXEC(src_side.qp.wr_complete(EINVAL));
 }
 
+TEST_F(mkey_test_sig_custom, badSigAttrFlags) {
+	// @todo: add check for signature caps
+	//SIG_CHK_SUT();
+
+	mkey_dv_new<mkey_access_flags<>,
+		    mkey_layout_new_list_mrs<DATA_SIZE>,
+		    mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32c, mkey_block_size_512>,
+				   mkey_sig_block_domain<mkey_sig_crc32c, mkey_block_size_512>,
+				   0, MLX5DV_SIG_BLOCK_ATTR_FLAG_COPY_MASK | 2, 0>>
+		src_mkey(*this, this->src_side.pd, 1, MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT |
+			 MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE);
+
+	EXECL(src_mkey.init());
+
+	EXEC(src_side.qp.wr_flags(IBV_SEND_SIGNALED | IBV_SEND_INLINE));
+	EXEC(src_side.qp.wr_start());
+	EXECL(src_mkey.wr_configure(this->src_side.qp));
+	EXEC(src_side.qp.wr_complete(EINVAL));
+}
+
 #endif /* HAVE_DECL_MLX5DV_WR_MKEY_CONFIGURE */
