@@ -511,15 +511,14 @@ INSTANTIATE_TYPED_TEST_CASE_P(fence_ops, mkey_test_sig_block_fence, mkey_test_fe
 typedef mkey_test_base<ibvt_qp_dv<>> mkey_test_sig_custom;
 
 TEST_F(mkey_test_sig_custom, noBlockSigAttr) {
-	CHK_SUT();
-
 	// Mkey is created without block signature support
 	mkey_dv_new<mkey_access_flags<>,
 		    mkey_layout_new_list_mrs<DATA_SIZE>,
 		    mkey_sig_block_none>
 		src_mkey(*this, this->src_side.pd, 1, MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT);
 
-	EXECL(src_mkey.init());
+	INITL(src_mkey.init());
+	CHK_SUT();
 
 	EXEC(src_side.qp.wr_flags(IBV_SEND_SIGNALED | IBV_SEND_INLINE));
 	EXEC(src_side.qp.wr_start());
@@ -540,7 +539,7 @@ TEST_F(mkey_test_sig_max_send_wr, maxSendWrTooSmall) {
 		 MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT |
 		     MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE);
 
-	EXECL(src_mkey.init());
+	INITL(src_mkey.init());
 	CHK_SUT();
 
 	this->src_side.qp.wr_flags(IBV_SEND_SIGNALED | IBV_SEND_INLINE);
@@ -561,7 +560,7 @@ TEST_F(mkey_test_sig_max_send_sge, maxSendSgeTooSmall) {
 		 MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT |
 		     MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE);
 
-	EXECL(src_mkey.init());
+	INITL(src_mkey.init());
 	CHK_SUT();
 
 	this->src_side.qp.wr_flags(IBV_SEND_SIGNALED | IBV_SEND_INLINE);
@@ -583,7 +582,7 @@ TEST_F(mkey_test_sig_max_inline_data, maxInlineDataTooSmall) {
 		 MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT |
 		     MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE);
 
-	EXECL(src_mkey.init());
+	INITL(src_mkey.init());
 	CHK_SUT();
 
 	this->src_side.qp.wr_flags(IBV_SEND_SIGNALED | IBV_SEND_INLINE);
@@ -929,16 +928,16 @@ typedef _mkey_test_sig_block<
     rdma_op_write> mkey_test_sig_pipelining;
 
 TEST_F(mkey_test_sig_pipelining, pipeliningBasicFlow) {
-	CHK_SUT();
-
 	const size_t SEND_SIZE = 64;
 	ibvt_mr send_mr(env, this->src_side.pd, SEND_SIZE); // for send data
 	ibvt_mr recv_mr(env, this->dst_side.pd, SEND_SIZE);
 	rdma_op_send send_op;
 
-	send_mr.init();
+	INITL(send_mr.init());
+	INITL(recv_mr.init());
+	CHK_SUT();
+
 	send_mr.fill();
-	recv_mr.init();
 	recv_mr.fill();
 
 	EXEC(fill_data());
@@ -973,7 +972,7 @@ TEST_F(mkey_test_sig_custom, copyMaskNotExpected) {
 		src_mkey(*this, this->src_side.pd, 1, MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT |
 			 MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE);
 
-	EXECL(src_mkey.init());
+	INITL(src_mkey.init());
 	CHK_SUT();
 
 	EXEC(src_side.qp.wr_flags(IBV_SEND_SIGNALED | IBV_SEND_INLINE));
@@ -991,7 +990,7 @@ TEST_F(mkey_test_sig_custom, badSigAttrFlags) {
 		src_mkey(*this, this->src_side.pd, 1, MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT |
 			 MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE);
 
-	EXECL(src_mkey.init());
+	INITL(src_mkey.init());
 	CHK_SUT();
 
 	EXEC(src_side.qp.wr_flags(IBV_SEND_SIGNALED | IBV_SEND_INLINE));

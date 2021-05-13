@@ -34,6 +34,19 @@
 #include <stdint.h>
 #include <endian.h>
 
+#define INITL(x) do { \
+		if (!this->env.skip) { \
+			VERBS_TRACE("%3d.%p: initialize\t%s" #x "\n", __LINE__, this, this->env.lvl_str); \
+			this->env.lvl_str[this->env.lvl++] = ' '; \
+			EXPECT_NO_FATAL_FAILURE(x); \
+			this->env.lvl_str[--this->env.lvl] = 0; \
+			if (this->env.skip) { \
+				VERBS_TRACE("%3d.%p: failed\t%s" #x " - skipping test\n", __LINE__, this, this->env.lvl_str); \
+				return; \
+			} \
+		} \
+	} while(0)
+
 #if HAVE_DECL_MLX5DV_WR_MKEY_CONFIGURE
 
 struct dif {

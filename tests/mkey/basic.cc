@@ -233,8 +233,9 @@ TEST_F(mkey_test_dv_custom, new_basicAttr_badAccessFlags) {
 								  1, MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT);
 	rdma_op_read rdma_op;
 
-	EXECL(src_mkey.init());
-	EXECL(dst_mkey.init());
+	INITL(src_mkey.init());
+	INITL(dst_mkey.init());
+	CHK_SUT();
 
 	this->dst_side.qp.wr_flags(IBV_SEND_SIGNALED | IBV_SEND_INLINE);
 	EXECL(dst_mkey.configure(this->dst_side.qp));
@@ -257,7 +258,9 @@ TEST_F(mkey_test_dv_custom, new_basicAttr_listLayoutEntriesOverflow) {
 		src_mkey(*this, this->src_side.pd, 1,
 			 MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT);
 
-	EXECL(src_mkey.init());
+	INITL(src_mkey.init());
+	CHK_SUT();
+
 	EXECL(src_side.qp.wr_flags(IBV_SEND_SIGNALED | IBV_SEND_INLINE));
 	EXEC(src_side.qp.wr_start());
 	EXECL(src_mkey.wr_configure(this->src_side.qp));
@@ -273,7 +276,9 @@ TEST_F(mkey_test_dv_custom, new_basicAttr_interleavedLayoutEntriesOverflow) {
 		src_mkey(*this, this->src_side.pd, 1,
 			 MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT);
 
-	EXECL(src_mkey.init());
+	INITL(src_mkey.init());
+	CHK_SUT();
+
 	EXECL(src_side.qp.wr_flags(IBV_SEND_SIGNALED | IBV_SEND_INLINE));
 	EXEC(src_side.qp.wr_start());
 	EXECL(src_mkey.wr_configure(this->src_side.qp));
@@ -291,8 +296,9 @@ TEST_F(mkey_test_dv_custom, old_basicAttr_badAccessFlags) {
 			 MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT);
 	rdma_op_read rdma_op;
 
-	EXECL(src_mkey.init());
-	EXECL(dst_mkey.init());
+	INITL(src_mkey.init());
+	INITL(dst_mkey.init());
+	CHK_SUT();
 
 	this->dst_side.qp.wr_flags(IBV_SEND_SIGNALED | IBV_SEND_INLINE);
 	EXECL(dst_mkey.configure(this->dst_side.qp));
@@ -314,7 +320,9 @@ TEST_F(mkey_test_dv_custom, old_basicAttr_listLayoutEntriesOverflow) {
 		src_mkey(*this, this->src_side.pd, 1,
 			 MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT);
 
-	EXECL(src_mkey.init());
+	INITL(src_mkey.init());
+	CHK_SUT();
+
 	EXECL(src_side.qp.wr_flags(IBV_SEND_SIGNALED | IBV_SEND_INLINE));
 	EXEC(src_side.qp.wr_start());
 	EXECL(src_mkey.wr_configure(this->src_side.qp));
@@ -329,7 +337,9 @@ TEST_F(mkey_test_dv_custom, old_basicAttr_interleavedLayoutEntriesOverflow) {
 		src_mkey(*this, this->src_side.pd, 1,
 			 MLX5DV_MKEY_INIT_ATTR_FLAGS_INDIRECT);
 
-	EXECL(src_mkey.init());
+	INITL(src_mkey.init());
+	CHK_SUT();
+
 	EXECL(src_side.qp.wr_flags(IBV_SEND_SIGNALED | IBV_SEND_INLINE));
 	EXEC(src_side.qp.wr_start());
 	EXECL(src_mkey.wr_configure(this->src_side.qp));
