@@ -206,12 +206,8 @@ using mkey_test_sig_block = _mkey_test_sig_block<typename T::SrcSigBlock, typena
 
 TYPED_TEST_CASE_P(mkey_test_sig_block);
 
-#define SIG_CHK_SUT() \
-	CHK_SUT(dv_sig); \
-	if (!this->is_supported()) SKIP(1);
-
 TYPED_TEST_P(mkey_test_sig_block, basic) {
-	SIG_CHK_SUT();
+	CHK_SUT();
 
 	EXEC(fill_data());
 	EXEC(configure_mkeys());
@@ -446,7 +442,7 @@ using mkey_test_sig_block_stress_test = _mkey_test_sig_block<
 TYPED_TEST_CASE_P(mkey_test_sig_block_stress_test);
 
 TYPED_TEST_P(mkey_test_sig_block_stress_test, basic) {
-	SIG_CHK_SUT();
+	CHK_SUT();
 
 	for (int i = 0; i < 10000; i++) {
 		EXEC(fill_data());
@@ -483,7 +479,7 @@ using mkey_test_sig_block_fence = _mkey_test_sig_block<
 TYPED_TEST_CASE_P(mkey_test_sig_block_fence);
 
 TYPED_TEST_P(mkey_test_sig_block_fence, basic) {
-	SIG_CHK_SUT();
+	CHK_SUT();
 
 	EXEC(fill_data());
 
@@ -515,8 +511,7 @@ INSTANTIATE_TYPED_TEST_CASE_P(fence_ops, mkey_test_sig_block_fence, mkey_test_fe
 typedef mkey_test_base<ibvt_qp_dv<>> mkey_test_sig_custom;
 
 TEST_F(mkey_test_sig_custom, noBlockSigAttr) {
-	// @todo: add caps check
-	//SIG_CHK_SUT();
+	CHK_SUT();
 
 	// Mkey is created without block signature support
 	mkey_dv_new<mkey_access_flags<>,
@@ -534,8 +529,6 @@ TEST_F(mkey_test_sig_custom, noBlockSigAttr) {
 
 typedef mkey_test_base<ibvt_qp_dv<2,16,32,4,512>> mkey_test_sig_max_send_wr;
 TEST_F(mkey_test_sig_max_send_wr, maxSendWrTooSmall) {
-	//SIG_CHK_SUT();
-
 	mkey_dv_new<
 	    mkey_access_flags<>,
 	    mkey_layout_new_list_mrs<DATA_SIZE>,
@@ -548,6 +541,7 @@ TEST_F(mkey_test_sig_max_send_wr, maxSendWrTooSmall) {
 		     MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE);
 
 	EXECL(src_mkey.init());
+	CHK_SUT();
 
 	this->src_side.qp.wr_flags(IBV_SEND_SIGNALED | IBV_SEND_INLINE);
 	EXEC(src_side.qp.wr_start());
@@ -557,8 +551,6 @@ TEST_F(mkey_test_sig_max_send_wr, maxSendWrTooSmall) {
 
 typedef mkey_test_base<ibvt_qp_dv<128,2,32,4,512>> mkey_test_sig_max_send_sge;
 TEST_F(mkey_test_sig_max_send_sge, maxSendSgeTooSmall) {
-	//SIG_CHK_SUT();
-
 	mkey_dv_new<
 	    mkey_access_flags<>,
 	    mkey_layout_new_list_mrs<DATA_SIZE/8, DATA_SIZE/8, DATA_SIZE/8, DATA_SIZE/8, DATA_SIZE/8>,
@@ -570,6 +562,7 @@ TEST_F(mkey_test_sig_max_send_sge, maxSendSgeTooSmall) {
 		     MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE);
 
 	EXECL(src_mkey.init());
+	CHK_SUT();
 
 	this->src_side.qp.wr_flags(IBV_SEND_SIGNALED | IBV_SEND_INLINE);
 	EXEC(src_side.qp.wr_start());
@@ -580,8 +573,6 @@ TEST_F(mkey_test_sig_max_send_sge, maxSendSgeTooSmall) {
 
 typedef mkey_test_base<ibvt_qp_dv<128,16,32,4,64>> mkey_test_sig_max_inline_data;
 TEST_F(mkey_test_sig_max_inline_data, maxInlineDataTooSmall) {
-	//SIG_CHK_SUT();
-
 	mkey_dv_new<
 	    mkey_access_flags<>,
 	    mkey_layout_new_list_mrs<DATA_SIZE/8, DATA_SIZE/8, DATA_SIZE/8, DATA_SIZE/8, DATA_SIZE/8>,
@@ -593,6 +584,7 @@ TEST_F(mkey_test_sig_max_inline_data, maxInlineDataTooSmall) {
 		     MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE);
 
 	EXECL(src_mkey.init());
+	CHK_SUT();
 
 	this->src_side.qp.wr_flags(IBV_SEND_SIGNALED | IBV_SEND_INLINE);
 	EXEC(src_side.qp.wr_start());
@@ -619,6 +611,7 @@ typedef _mkey_test_sig_block<
     rdma_op_write> mkey_test_t10dif_type1;
 
 TEST_F(mkey_test_t10dif_type1, skipCheckRefTag) {
+	CHK_SUT();
 
 	EXEC(fill_data());
 	EXEC(configure_mkeys());
@@ -646,6 +639,7 @@ typedef _mkey_test_sig_block<
     rdma_op_write> mkey_test_t10dif_type3;
 
 TEST_F(mkey_test_t10dif_type3, skipCheckRefTag) {
+	CHK_SUT();
 
 	EXEC(fill_data());
 	EXEC(configure_mkeys());
@@ -674,6 +668,7 @@ typedef _mkey_test_sig_block<
     rdma_op_write> mkey_test_different_app_tag_byte0_rdma_write;
 
 TEST_F(mkey_test_different_app_tag_byte0_rdma_write, corruptByte1) {
+	CHK_SUT();
 
 	EXEC(fill_data());
 	// Byte1 of App Tag is corrupted
@@ -686,6 +681,7 @@ TEST_F(mkey_test_different_app_tag_byte0_rdma_write, corruptByte1) {
 }
 
 TEST_F(mkey_test_different_app_tag_byte0_rdma_write, corruptByte1ReGenSig) {
+	CHK_SUT();
 
 	EXEC(fill_data());
 	// Byte1 of App Tag is corrupted
@@ -704,6 +700,7 @@ TEST_F(mkey_test_different_app_tag_byte0_rdma_write, corruptByte1ReGenSig) {
 }
 
 TEST_F(mkey_test_different_app_tag_byte0_rdma_write, corruptByte0) {
+	CHK_SUT();
 
 	EXEC(fill_data());
 	// Byte0 of App Tag is corrupted
@@ -716,6 +713,7 @@ TEST_F(mkey_test_different_app_tag_byte0_rdma_write, corruptByte0) {
 }
 
 TEST_F(mkey_test_different_app_tag_byte0_rdma_write, corruptByte0ReGenSig) {
+	CHK_SUT();
 
 	EXEC(fill_data());
 	// Byte1 of App Tag is corrupted
@@ -748,6 +746,7 @@ typedef _mkey_test_sig_block<
     rdma_op_write> mkey_test_same_app_tag_byte0_rdma_read;
 
 TEST_F(mkey_test_same_app_tag_byte0_rdma_read, corruptByte1) {
+	CHK_SUT();
 
 	EXEC(fill_data());
 	// Byte1 of App Tag is corrupted
@@ -760,6 +759,7 @@ TEST_F(mkey_test_same_app_tag_byte0_rdma_read, corruptByte1) {
 }
 
 TEST_F(mkey_test_same_app_tag_byte0_rdma_read, corruptByte1CopySig) {
+	CHK_SUT();
 
 	EXEC(fill_data());
 	// Byte1 of App Tag is corrupted
@@ -775,6 +775,7 @@ TEST_F(mkey_test_same_app_tag_byte0_rdma_read, corruptByte1CopySig) {
 }
 
 TEST_F(mkey_test_same_app_tag_byte0_rdma_read, corruptByte0) {
+	CHK_SUT();
 
 	EXEC(fill_data());
 	// Byte0 of App Tag is corrupted
@@ -787,6 +788,7 @@ TEST_F(mkey_test_same_app_tag_byte0_rdma_read, corruptByte0) {
 }
 
 TEST_F(mkey_test_same_app_tag_byte0_rdma_read, corruptByte0CopySig) {
+	CHK_SUT();
 
 	EXEC(fill_data());
 	// Byte0 of App Tag is corrupted
@@ -812,6 +814,7 @@ typedef _mkey_test_sig_block<
     rdma_op_write> mkey_test_sig_corrupt;
 
 TEST_F(mkey_test_sig_corrupt, guardError) {
+	CHK_SUT();
 
 	EXEC(fill_data());
 	EXEC(corrupt_data(0));
@@ -824,6 +827,7 @@ TEST_F(mkey_test_sig_corrupt, guardError) {
 }
 
 TEST_F(mkey_test_sig_corrupt, appTagError) {
+	CHK_SUT();
 
 	EXEC(fill_data());
 	EXEC(corrupt_data(512 + 2));
@@ -836,6 +840,7 @@ TEST_F(mkey_test_sig_corrupt, appTagError) {
 }
 
 TEST_F(mkey_test_sig_corrupt, refTagError) {
+	CHK_SUT();
 
 	EXEC(fill_data());
 	EXEC(corrupt_data(512 + 4));
@@ -864,6 +869,7 @@ typedef _mkey_test_sig_block<
     t10dif_sig<0xec7d,0x5678,0xf0debc9a>, 1, ibvt_qp_dv<>,
     rdma_op_write> mkey_test_sig_incorrect_ref_tag;
 TEST_F(mkey_test_sig_incorrect_ref_tag, refTagError) {
+	CHK_SUT();
 
 	EXEC(fill_data());
 	EXEC(configure_mkeys());
@@ -885,6 +891,7 @@ typedef _mkey_test_sig_block<
     rdma_op_write> mkey_test_crc_sig_corrupt;
 
 TEST_F(mkey_test_crc_sig_corrupt, corruptData) {
+	CHK_SUT();
 
 	EXEC(fill_data());
 	EXEC(corrupt_data(0));
@@ -897,6 +904,7 @@ TEST_F(mkey_test_crc_sig_corrupt, corruptData) {
 }
 
 TEST_F(mkey_test_crc_sig_corrupt, corruptSig) {
+	CHK_SUT();
 
 	EXEC(fill_data());
 	EXEC(corrupt_data(512));
@@ -921,7 +929,7 @@ typedef _mkey_test_sig_block<
     rdma_op_write> mkey_test_sig_pipelining;
 
 TEST_F(mkey_test_sig_pipelining, pipeliningBasicFlow) {
-	SIG_CHK_SUT();
+	CHK_SUT();
 
 	const size_t SEND_SIZE = 64;
 	ibvt_mr send_mr(env, this->src_side.pd, SEND_SIZE); // for send data
@@ -955,9 +963,6 @@ TEST_F(mkey_test_sig_pipelining, pipeliningBasicFlow) {
 }
 
 TEST_F(mkey_test_sig_custom, copyMaskNotExpected) {
-	// @todo: add check for signature caps
-	//SIG_CHK_SUT();
-
 	// Mkey is created with different block structures in mem and
 	// wire domain and copy mask is specified
 	mkey_dv_new<mkey_access_flags<>,
@@ -969,6 +974,7 @@ TEST_F(mkey_test_sig_custom, copyMaskNotExpected) {
 			 MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE);
 
 	EXECL(src_mkey.init());
+	CHK_SUT();
 
 	EXEC(src_side.qp.wr_flags(IBV_SEND_SIGNALED | IBV_SEND_INLINE));
 	EXEC(src_side.qp.wr_start());
@@ -977,9 +983,6 @@ TEST_F(mkey_test_sig_custom, copyMaskNotExpected) {
 }
 
 TEST_F(mkey_test_sig_custom, badSigAttrFlags) {
-	// @todo: add check for signature caps
-	//SIG_CHK_SUT();
-
 	mkey_dv_new<mkey_access_flags<>,
 		    mkey_layout_new_list_mrs<DATA_SIZE>,
 		    mkey_sig_block<mkey_sig_block_domain<mkey_sig_crc32c, mkey_block_size_512>,
@@ -989,6 +992,7 @@ TEST_F(mkey_test_sig_custom, badSigAttrFlags) {
 			 MLX5DV_MKEY_INIT_ATTR_FLAGS_BLOCK_SIGNATURE);
 
 	EXECL(src_mkey.init());
+	CHK_SUT();
 
 	EXEC(src_side.qp.wr_flags(IBV_SEND_SIGNALED | IBV_SEND_INLINE));
 	EXEC(src_side.qp.wr_start());
