@@ -81,15 +81,19 @@ struct _mkey_test_sig_block : public mkey_test_base<Qp> {
 
 	virtual void SetUp() override {
 		mkey_test_base<Qp>::SetUp();
+		INIT(check_caps());
 		INIT(src_mkey.init());
 		INIT(dst_mkey.init());
 	}
 
-	bool is_supported() {
+	void check_caps() {
 		struct mlx5dv_context attr = {};
+		bool is_supported;
+
 		attr.comp_mask = MLX5DV_CONTEXT_MASK_SIGNATURE_OFFLOAD;
-		mlx5dv_query_device(this->ctx.ctx, &attr);
-		return SrcSigBlock::is_supported(attr) && DstSigBlock::is_supported(attr);
+		DO(mlx5dv_query_device(this->ctx.ctx, &attr));
+		SET(is_supported, SrcSigBlock::is_supported(attr));
+		SET(is_supported, DstSigBlock::is_supported(attr));
 	}
 
 	void fill_data() {
